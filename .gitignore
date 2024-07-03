@@ -1,7 +1,26 @@
-node_modules
 !.gitkeep
+
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
 dist
-easynode-server.zip
-server/app/static/upload/*
-server/app/socket/temp/*
-server/app/logs/*
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example

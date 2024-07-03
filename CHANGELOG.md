@@ -1,3 +1,7 @@
+## [2.0.0-beta](https://github.com/chaos-zhu/easynode/releases) (2024-07-13)
+
+底层代码重构
+
 ## [1.2.1](https://github.com/chaos-zhu/easynode/releases) (2022-12-12)
 
 ### Features
