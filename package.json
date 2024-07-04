@@ -1,7 +1,7 @@
 {
   "name": "easynode",
   "version": "1.0.0",
-  "description": "easy to manage the server",
+  "description": "connect to your server via the easynode",
   "private": false,
   "repository": {
     "type": "git",
@@ -16,11 +16,20 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@nuxt/eslint": "^0.3.13",
+    "@nuxtjs/eslint-module": "^4.1.0",
+    "@nuxtjs/tailwindcss": "^6.12.0",
+    "@pinia/nuxt": "^0.5.1",
+    "naive-ui": "^2.38.2",
     "nuxt": "^3.12.3",
+    "nuxtjs-naive-ui": "^1.0.2",
     "vue": "latest"
   },
   "packageManager": "pnpm@9.4.0+sha512.f549b8a52c9d2b8536762f99c0722205efc5af913e77835dbccc3b0b0b2ca9e7dc8022b78062c17291c48e88749c70ce88eb5a74f1fa8c4bf5e18bb46c8bd83a",
   "devDependencies": {
-    "@nuxt/devtools": "^1.3.9"
+    "@nuxt/devtools": "^1.3.9",
+    "eslint-plugin-vue": "^9.27.0",
+    "unplugin-auto-import": "^0.17.6",
+    "unplugin-vue-components": "^0.27.2"
   }
 }
