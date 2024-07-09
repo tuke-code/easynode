@@ -1,5 +1,5 @@
 <template>
-  <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+  <div class="flex miel-h-full flex-col justify-center px-6 py-12 lg:px-8">
     <div class="sm:mx-auto sm:w-full sm:max-w-sm mt-32">
       <img class="mx-auto h-10 w-auto" src="https://tailwindui.com/img/logos/mark.svg?color=indigo&shade=600">
       <!-- <h2 class="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">Sign in to your account</h2> -->
@@ -11,9 +11,7 @@
         <div>
           <label for="email" class="block text-sm font-medium leading-6 text-gray-900">用户名</label>
           <div class="mt-2">
-            <n-input-group>
-              <n-input v-model="username" />
-            </n-input-group>
+            <el-input v-model="username" />
           </div>
         </div>
 
@@ -25,14 +23,12 @@
             </div> -->
           </div>
           <div class="mt-2">
-            <n-input-group>
-              <n-input type="password" v-model="password" show-password-on="mousedown" :maxlength="18" />
-            </n-input-group>
+            <el-input type="password" v-model="password" show-password-on="mousedown" :maxlength="18" />
           </div>
         </div>
-        <n-button type="primary" class="w-full">
+        <el-button type="primary" class="w-full">
           登录
-        </n-button>
+        </el-button>
       </form>
 
       <!-- <p class="mt-10 text-center text-sm text-gray-500">
