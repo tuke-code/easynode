@@ -103,6 +103,8 @@ dependency_overrides:
       path: "packages/share_plus/share_plus"
 
 flutter:
+  config:
+    enable-swift-package-manager: true
   uses-material-design: true
   assets:
     - assets/logo_v2_01.png
