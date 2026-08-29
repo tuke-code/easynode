@@ -22,6 +22,7 @@ import '../settings/account_security_page.dart';
 import '../settings/ai_agent_settings_page.dart';
 import '../settings/app_update_prompt.dart';
 import '../settings/credentials_page.dart';
+import '../settings/ip_access_page.dart';
 import '../settings/models/plus_info.dart';
 import '../settings/proxy_page.dart';
 import '../settings/sessions_page.dart';
@@ -434,6 +435,12 @@ class SettingsTab extends ConsumerWidget {
                       title: l.tr('settings.sessions.title'),
                       subtitle: l.tr('settings.sessions.subtitle'),
                       onTap: () => _push(context, const SessionsPage()),
+                    ),
+                    SettingsRow(
+                      icon: Icons.shield_outlined,
+                      title: l.tr('settings.ipAccess.title'),
+                      subtitle: l.tr('settings.ipAccess.subtitle'),
+                      onTap: () => _push(context, const IpAccessPage()),
                     ),
                   ],
                 ),

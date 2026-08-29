@@ -84,7 +84,8 @@ class LoginSession {
     }
 
     final revokedRaw = json['revoked'];
-    final revoked = revokedRaw == 1 ||
+    final revoked =
+        revokedRaw == 1 ||
         revokedRaw == true ||
         revokedRaw == '1' ||
         revokedRaw == 'true';
@@ -106,23 +107,19 @@ class LoginSession {
   }
 }
 
-/// `GET /log` -> `data` shape: `{ list, ipWhiteList }`.
+/// `GET /log` -> `data`.
 class LoginLogData {
-  const LoginLogData({required this.sessions, required this.ipWhiteList});
+  const LoginLogData({required this.sessions});
 
   final List<LoginSession> sessions;
-  final List<String> ipWhiteList;
 
   factory LoginLogData.fromJson(Map<String, dynamic> json) {
-    final list = (json['list'] as List?)
+    final list =
+        (json['list'] as List?)
             ?.whereType<Map<String, dynamic>>()
             .map(LoginSession.fromJson)
             .toList(growable: false) ??
         const <LoginSession>[];
-    final whitelist = (json['ipWhiteList'] as List?)
-            ?.map((e) => e.toString())
-            .toList(growable: false) ??
-        const <String>[];
-    return LoginLogData(sessions: list, ipWhiteList: whitelist);
+    return LoginLogData(sessions: list);
   }
 }

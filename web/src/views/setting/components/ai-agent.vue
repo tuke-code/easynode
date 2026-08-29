@@ -426,6 +426,7 @@ onMounted(async () => {
 
 .settings_tabs {
   :deep(.el-tabs__header) { margin: 0 0 18px; }
+  :deep(.el-tabs__nav-scroll) { padding: 0 24px; }
   :deep(.el-tabs__nav-wrap::after) { height: 1px; }
   :deep(.el-tabs__item) { height: 48px; padding: 0 22px; }
 }
@@ -507,6 +508,7 @@ onMounted(async () => {
 .host_addr { margin-top: 3px; color: var(--el-text-color-secondary); font-size: 12px; }
 
 @media (max-width: 768px) {
+  .settings_tabs :deep(.el-tabs__nav-scroll) { padding: 0 14px; }
   .settings_tabs :deep(.el-tabs__item) { height: 44px; padding: 0 14px; }
   .tab_label { gap: 5px; font-size: 13px; }
   .settings_section { padding: 14px; }

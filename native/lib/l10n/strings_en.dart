@@ -65,7 +65,7 @@ const Map<String, String> stringsEn = {
   // Access control
   'access.ipDeniedTitle': 'Access denied',
   'access.ipDeniedBody':
-      'This device IP is not in the server allow-list. Switch to an allowed network, then restart the app.',
+      'This device IP is not covered by the server access rules. Switch to an allowed network, then restart the app.',
 
   // Login expiry options
   'login.expiry.threeDays': '3 days',
@@ -323,7 +323,9 @@ const Map<String, String> stringsEn = {
   'settings.account.title': 'Account & password',
   'settings.account.subtitle': 'Username, password and MFA2',
   'settings.sessions.title': 'Login sessions',
-  'settings.sessions.subtitle': 'Devices and IP allow-list',
+  'settings.sessions.subtitle': 'View and revoke signed-in devices',
+  'settings.ipAccess.title': 'access control',
+  'settings.ipAccess.subtitle': 'Restrict panel, WebSocket, and RDP source IPs',
   'settings.credentials.title': 'Credentials',
   'settings.credentials.subtitle': 'Centrally managed SSH credentials',
   'settings.proxy.title': 'Proxies',
@@ -368,13 +370,36 @@ const Map<String, String> stringsEn = {
   'settings.notifications.tooltip': 'Notifications',
   'settings.notifications.empty': 'No notifications yet',
 
+  // IP access control
+  'ipAccess.hint':
+      'Restrict source addresses for HTTP, WebSocket, and RDP services.',
+  'ipAccess.restricted': 'Restricted · {0} rules',
+  'ipAccess.unrestricted': 'Unrestricted',
+  'ipAccess.currentLabel': 'Current source IP detected by the server',
+  'ipAccess.addCurrent': 'Add current IP',
+  'ipAccess.addHint': 'Enter an exact IP or CIDR, then press return',
+  'ipAccess.ruleHelp':
+      'Supports exact IPv4/IPv6 addresses and CIDR ranges, up to 100 rules.',
+  'ipAccess.invalidRule': 'Enter a valid exact IP or CIDR range',
+  'ipAccess.legacyTip':
+      'Legacy fuzzy rule; it can only be kept or removed. Suggested replacement: {0}',
+  'ipAccess.empty': 'No rules — access is allowed from any source IP',
+  'ipAccess.save': 'Save rules',
+  'ipAccess.saved': 'Rules saved',
+  'ipAccess.unsaved': 'Unsaved changes',
+  'ipAccess.reset': 'Undo changes',
+  'ipAccess.disableConfirmTitle': 'Disable IP access restrictions?',
+  'ipAccess.disableConfirmBody':
+      'Clearing all rules lets any source IP access the panel.',
+  'ipAccess.disableConfirmAction': 'Disable restrictions',
+  'ipAccess.mismatchTitle': 'Current IP is not allowed',
+  'ipAccess.mismatchBody':
+      'The current source IP {0} is not covered. This device will immediately lose access after saving.',
+  'ipAccess.mismatchBack': 'Back to editing',
+  'ipAccess.mismatchAdd': 'Add current IP and save',
+  'ipAccess.mismatchForce': 'Save anyway',
+
   // Sessions
-  'sessions.ipWhitelistTitle': 'IP whitelist',
-  'sessions.ipWhitelistHint':
-      'Substring match — "192.168" matches all 192.168.* addresses.',
-  'sessions.ipAddHint': 'Enter an IP and press return',
-  'sessions.ipEmpty': 'No IPs configured — access is unrestricted',
-  'sessions.ipSave': 'Save whitelist',
   'sessions.loginRecordsTitle': 'Login records',
   'sessions.retentionTip':
       'Login records are retained for 90 days and then deleted automatically.',

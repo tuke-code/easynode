@@ -23,12 +23,7 @@ class ApiAccessNotifier extends StateNotifier<ApiAccessState> {
 
   Future<void> handleSessionFailure(ApiSessionFailure failure) async {
     if (failure is IpAccessDeniedFailure) {
-      if (!state.ipAccessDenied) {
-        state = ApiAccessState(
-          signOutReason: state.signOutReason,
-          ipAccessDenied: true,
-        );
-      }
+      markIpAccessDenied();
       return;
     }
 
@@ -41,6 +36,14 @@ class ApiAccessNotifier extends StateNotifier<ApiAccessState> {
     final signOut = _ref.read(authProvider.notifier).signOut();
     _forcedSignOutFuture = signOut;
     await signOut;
+  }
+
+  void markIpAccessDenied() {
+    if (state.ipAccessDenied) return;
+    state = ApiAccessState(
+      signOutReason: state.signOutReason,
+      ipAccessDenied: true,
+    );
   }
 
   void consumeSignOutReason() {

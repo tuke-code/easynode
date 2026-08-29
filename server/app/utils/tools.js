@@ -6,6 +6,7 @@ import iconv from 'iconv-lite'
 import axios from 'axios'
 const request = axios.create({ timeout: 3000 })
 import { plusServers } from './plus-server.js'
+import { isAllowedIp, normalizeIpAddress } from './ip-access.js'
 
 // 为空时请求本地IP
 const getNetIPInfo = async (searchIp = '') => {
@@ -272,15 +273,7 @@ const isProd = () => {
 }
 
 // 将 IPv6 映射的 IPv4 地址（::ffff:x.x.x.x）规范化为纯 IPv4，保证比较一致性
-const normalizeIP = (ip) => {
-  if (typeof ip !== 'string') return ''
-  ip = ip.trim().toLowerCase()
-  if (ip.startsWith('::ffff:')) {
-    const ipv4Part = ip.slice(7)
-    if (net.isIPv4(ipv4Part)) return ipv4Part
-  }
-  return ip
-}
+const normalizeIP = normalizeIpAddress
 
 const isLoopbackIP = (ip) => {
   if (ip === '::1') return true
@@ -318,14 +311,6 @@ const getClientIP = (socketRemoteAddress, xForwardedFor) => {
 
   const parts = xForwardedFor.split(',').map(item => normalizeIP(item)).filter(Boolean)
   return parts[parts.length - 1] || socketIP
-}
-
-const isAllowedIp = (requestIP) => {
-  let allowedIPs = Array.isArray(global.ALLOWED_IPS) ? global.ALLOWED_IPS : []
-  if (allowedIPs.length === 0) return true
-  let flag = allowedIPs.some(item => requestIP.includes(item))
-  if (!flag) logger.warn(`requestIP:${ requestIP } 不在允许的IP列表中. 允许的IP列表:${ allowedIPs.join(',') }`)
-  return flag
 }
 
 const VALID_HOSTNAME = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/

@@ -17,7 +17,7 @@ const ipFilter = async (ctx, next) => {
     ctx.body = {
       status: 403,
       data: { code: 'IP_ACCESS_DENIED' },
-      msg: '当前 IP 不在白名单中，禁止访问'
+      msg: '当前 IP 不在访问规则中，禁止访问'
     }
     return
   }

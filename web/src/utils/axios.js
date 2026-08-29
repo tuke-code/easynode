@@ -31,6 +31,10 @@ instance.interceptors.response.use((response) => {
       router.push('login')
       return Promise.reject(error)
     case 403:
+      if (response?.data?.data?.code === 'IP_ACCESS_DENIED') {
+        window.location.reload()
+        return Promise.reject(error)
+      }
       if (!skipErrorMessage) ElMessage({ message: `${ response?.data?.msg || '登录错误' }`, type: 'error', center: true })
       router.push('login')
       return Promise.reject(error)

@@ -13,7 +13,7 @@
           1. 如果你的服务器有<span class="highlight">非常重要的数据</span>，请谨慎在公网暴露此面板。
         </li>
         <li>
-          2. 善用面板提供的<span class="highlight">双重认证</span>与<span class="highlight">IP白名单</span>功能，提升面板安全性。
+          2. 善用面板提供的<span class="highlight">双重认证</span>与<span class="highlight">ip访问控制</span>功能，提升面板安全性。
         </li>
         <li>
           3. <span class="highlight">不要安装来源不明的浏览器插件或者油猴脚本</span>，以防止鉴权Token泄露。

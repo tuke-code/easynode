@@ -6,6 +6,7 @@ import '../../core/crypto/cryptojs_aes.dart';
 import '../../core/crypto/rsa_crypto.dart';
 import '../servers/server_proxy_model.dart';
 import 'models/login_session.dart';
+import 'models/ip_access_rule.dart';
 import 'models/plus_info.dart';
 
 /// Repository for the Account / Plus / Sessions / Proxy CRUD / Credential
@@ -100,12 +101,32 @@ class SettingsRepository {
   Future<LoginLogData> getLoginLog() async {
     final res = await apiClient.getJson('/log');
     final raw = res['data'];
-    if (raw is! Map) return const LoginLogData(sessions: [], ipWhiteList: []);
+    if (raw is! Map) return const LoginLogData(sessions: []);
     return LoginLogData.fromJson(Map<String, dynamic>.from(raw));
   }
 
-  Future<void> saveIpWhiteList(List<String> whitelist) async {
-    await apiClient.postJson('/ip-white-list', {'ipWhiteList': whitelist});
+  Future<IpAccessConfig> getIpAccessRules() async {
+    final response = await apiClient.getJson('/ip-access-rules');
+    final raw = response['data'];
+    final Map<String, dynamic> data = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : const {};
+    return IpAccessConfig.fromJson(data);
+  }
+
+  Future<IpAccessConfig> saveIpAccessRules(
+    List<String> rules, {
+    bool allowCurrentIpMismatch = false,
+  }) async {
+    final body = {
+      'ipWhiteList': rules,
+      'allowCurrentIpMismatch': allowCurrentIpMismatch,
+    };
+    final response = await apiClient.postJson('/ip-access-rules', body);
+    final raw = response['data'];
+    return IpAccessConfig.fromJson(
+      raw is Map ? Map<String, dynamic>.from(raw) : const {},
+    );
   }
 
   Future<void> revokeSession(String idOrDeviceId) async {

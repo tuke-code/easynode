@@ -40,6 +40,21 @@ void main() {
     }
   });
 
+  test('preserves current-IP lockout metadata on a 409 response', () {
+    final failure = apiFailureFromDioException(
+      _httpFailure(409, {
+        'msg': 'current IP is not covered',
+        'data': {'code': 'CURRENT_IP_NOT_ALLOWED', 'currentIp': '203.0.113.8'},
+      }),
+    );
+
+    expect(failure, isA<ApiFailure>());
+    expect(failure, isNot(isA<ApiSessionFailure>()));
+    expect(failure.statusCode, 409);
+    expect((failure.data as Map)['code'], 'CURRENT_IP_NOT_ALLOWED');
+    expect((failure.data as Map)['currentIp'], '203.0.113.8');
+  });
+
   test('redacts nested credentials and sensitive query parameters', () {
     final redacted =
         redactDebugValue({

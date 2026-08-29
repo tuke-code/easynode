@@ -1,31 +1,19 @@
-import { KeyDB, SessionDB } from '../utils/db-class.js'
+import { SessionDB } from '../utils/db-class.js'
 import { cookieSecure } from '../config/index.js'
 import { disconnectAllSessionConnections, revokeAllSessions } from '../utils/auth-session.js'
 import { pruneLoginLogs } from '../utils/login-log.js'
-const keyDB = new KeyDB().getInstance()
 const sessionDB = new SessionDB().getInstance()
 
 async function getLog({ res }) {
   await pruneLoginLogs(sessionDB)
   let sessionList = await sessionDB.findAsync({})
-  let { ipWhiteList = [] } = await keyDB.findOneAsync({}) || {}
-  ipWhiteList = ipWhiteList.filter(ip => typeof ip === 'string' && ip.trim() !== '')
   sessionList = sessionList.map(item => {
     // eslint-disable-next-line no-unused-vars
     const { session, ...otherInfo } = item
     return { ...otherInfo, id: item._id }
   })
   sessionList?.sort((a, b) => Number(b.create) - Number(a.create))
-  res.success({ data: { list: sessionList, ipWhiteList } })
-}
-
-const saveIpWhiteList = async ({ res, request }) => {
-  const { body: { ipWhiteList } } = request
-  if (!Array.isArray(ipWhiteList)) return res.fail({ msg: 'ip list输入非法' })
-  let { _id } = await keyDB.findOneAsync({})
-  await keyDB.updateAsync({ _id }, { $set: { ipWhiteList } })
-  global.ALLOWED_IPS = ipWhiteList
-  res.success({ msg: 'success' })
+  res.success({ data: { list: sessionList } })
 }
 
 const revokeLoginSid = async (ctx) => {
@@ -65,7 +53,6 @@ const revokeAllLoginSessions = async (ctx) => {
 
 export {
   getLog,
-  saveIpWhiteList,
   revokeAllLoginSessions,
   revokeLoginSid
 }

@@ -2,6 +2,12 @@ import NodeRSA from 'node-rsa'
 import { randomStr } from './utils/tools.js'
 import { AESEncryptAsync, SHA1Encrypt } from './utils/encrypt.js'
 import { KeyDB, GroupDB, NotifyDB, NotifyConfigDB, ScriptGroupDB } from './utils/db-class.js'
+import {
+  IP_ACCESS_RULE_VERSION,
+  normalizeStoredIpRules,
+  resolveStoredLegacyIpRules,
+  setAllowedIpRules
+} from './utils/ip-access.js'
 
 async function initKeyDB() {
   const keyDB = new KeyDB().getInstance()
@@ -15,11 +21,27 @@ async function initKeyDB() {
       await keyDB.updateAsync({ _id: keyData._id }, { $set: { jwtToken } })
     }
 
-    const { _id, ipWhiteList = [] } = keyData
     try {
-      let { ipWhiteList = [] } = await keyDB.findOneAsync({})
-      const filteredList = ipWhiteList.filter(ip => typeof ip === 'string' && ip.trim() !== '')
-      if (filteredList.length > 0) global.ALLOWED_IPS = filteredList
+      const { ipWhiteList = [] } = keyData
+      const normalizedRules = normalizeStoredIpRules(ipWhiteList)
+      const legacyRules = resolveStoredLegacyIpRules({
+        rules: normalizedRules,
+        legacyRules: keyData.ipAccessLegacyRules,
+        ruleVersion: keyData.ipAccessRuleVersion
+      })
+      setAllowedIpRules(normalizedRules, { legacyRules })
+
+      if (Number(keyData.ipAccessRuleVersion) < IP_ACCESS_RULE_VERSION ||
+        !Number.isFinite(Number(keyData.ipAccessRuleVersion))) {
+        await keyDB.updateAsync({ _id: keyData._id }, {
+          $set: {
+            ipWhiteList: normalizedRules,
+            ipAccessLegacyRules: legacyRules,
+            ipAccessRuleVersion: IP_ACCESS_RULE_VERSION
+          }
+        })
+        logger.info(`旧版 IP 白名单已迁移为 ${ legacyRules.length } 条 legacy 访问规则`)
+      }
     } catch (error) {
       logger.error('设置全局IP白名单失败:', error)
     }
@@ -35,6 +57,9 @@ async function initKeyDB() {
     pwd: SHA1Encrypt(randomPassword),
     commonKey: randomStr(32),
     jwtToken: randomStr(32),
+    ipWhiteList: [],
+    ipAccessLegacyRules: [],
+    ipAccessRuleVersion: IP_ACCESS_RULE_VERSION,
     publicKey: '',
     privateKey: ''
   }

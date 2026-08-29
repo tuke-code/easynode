@@ -59,6 +59,13 @@ void main() {
     expect(container.read(apiAccessProvider).ipAccessDenied, isTrue);
   });
 
+  test('forced IP rule save can raise the same blocking state directly', () {
+    container.read(apiAccessProvider.notifier).markIpAccessDenied();
+
+    expect(auth.signOutCalls, 0);
+    expect(container.read(apiAccessProvider).ipAccessDenied, isTrue);
+  });
+
   test('reset clears access state and allows a later sign-out', () async {
     final notifier = container.read(apiAccessProvider.notifier);
     await notifier.handleSessionFailure(

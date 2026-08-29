@@ -27,7 +27,7 @@ class UnauthorizedFailure extends ApiSessionFailure {
 }
 
 /// The request reached EasyNode, but its source IP is not permitted by the
-/// server's IP allow-list. This is not an authentication failure: credentials
+/// server's IP access rules. This is not an authentication failure: credentials
 /// remain valid and must not be cleared automatically.
 class IpAccessDeniedFailure extends ApiSessionFailure {
   IpAccessDeniedFailure(super.message, {super.statusCode, super.data});

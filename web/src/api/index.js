@@ -72,8 +72,11 @@ export default {
   getLoginRecord() {
     return axios({ url: '/log', method: 'get' })
   },
-  saveIpWhiteList(data) {
-    return axios({ url: '/ip-white-list', method: 'post', data })
+  getIpAccessRules() {
+    return axios({ url: '/ip-access-rules', method: 'get' })
+  },
+  saveIpAccessRules(data) {
+    return axios({ url: '/ip-access-rules', method: 'post', data })
   },
   updatePwd(data) {
     return axios({ url: '/pwd', method: 'put', data })

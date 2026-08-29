@@ -7,7 +7,8 @@ import { getGroupList, addGroupList, updateGroupList, removeGroup } from '../con
 import { getScriptList, getLocalScriptList, addScript, updateScriptList, removeScript, batchRemoveScript, importScript } from '../controller/scripts.js'
 import { getScriptGroupList, addScriptGroup, removeScriptGroup, updateScriptGroup } from '../controller/script-group.js'
 import { getOnekeyRecord, removeOnekeyRecord } from '../controller/onekey.js'
-import { getLog, saveIpWhiteList, revokeAllLoginSessions, revokeLoginSid } from '../controller/sessionLog.js'
+import { getLog, revokeAllLoginSessions, revokeLoginSid } from '../controller/sessionLog.js'
+import { getIpAccessRules, rejectLegacyIpAccessApi, saveIpAccessRules } from '../controller/ipAccess.js'
 import { getAIConfig, saveAIConfig, getAIModels, updateAIPreferences } from '../controller/chat.js'
 import { getAgentSessions, getAgentSessionDetail, updateAgentSession, forkAgentSession, removeAgentSession, clearAgentSessions, editAgentSessionMessage } from '../controller/agent-session.js'
 import { getAgentMcpServers, addAgentMcpServer, editAgentMcpServer, removeAgentMcpServer, testAgentMcpConnection, discoverAgentMcpServer } from '../controller/agent-mcp.js'
@@ -290,11 +291,6 @@ const log = [
     controller: getLog
   },
   {
-    method: 'post',
-    path: '/ip-white-list',
-    controller: saveIpWhiteList
-  },
-  {
     method: 'delete',
     path: '/revoke-all-sessions',
     controller: revokeAllLoginSessions
@@ -303,6 +299,24 @@ const log = [
     method: 'delete',
     path: '/revoke-login/:id',
     controller: revokeLoginSid
+  }
+]
+
+const ipAccess = [
+  {
+    method: 'get',
+    path: '/ip-access-rules',
+    controller: getIpAccessRules
+  },
+  {
+    method: 'post',
+    path: '/ip-access-rules',
+    controller: saveIpAccessRules
+  },
+  {
+    method: 'post',
+    path: '/ip-white-list',
+    controller: rejectLegacyIpAccessApi
   }
 ]
 
@@ -490,6 +504,7 @@ export default [].concat(
   scriptGroup,
   onekey,
   log,
+  ipAccess,
   aiConfig,
   agentMcp,
   proxy,
