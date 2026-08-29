@@ -74,8 +74,9 @@ Native端复用现有EasyNode后端，在移动设备上提供服务器管理、
 
 - 首次启动后会在终端自动生成管理员账号密码，登录后请及时修改，避免日志残留敏感信息。
 - 请牢记账号密码，出于安全原因，不提供一键重置密码的脚本
-- 默认web端口：**8082**
-
+- 访问：
+  - https安全访问：https://ip:8083  【注意：默认启用https自签证书加密访问，首次打开需在浏览器中手动跳过 https 证书错误提示：浏览器页面中点 高级 --> 继续前往】
+  - http 内网访问：http://ip:8082  【仓库提供的docker-compose默认仅开放 12.0.0.1 内网访问，切记开放公网访问**请勿使用http**】
 
 ### docker-compose部署
 
@@ -89,7 +90,7 @@ Native端复用现有EasyNode后端，在移动设备上提供服务器管理、
 # 1. 创建easynode目录
 mkdir -p /root/easynode && cd /root/easynode
 
-# 2. 下载docker-compose.yml文件（含watchtower）
+# 2. 下载docker-compose.yml文件（含watchtower自动更新）
 wget https://git.221022.xyz/https://raw.githubusercontent.com/chaos-zhu/easynode/main/docker-compose.yml
 
 # 3. 启动服务
@@ -104,8 +105,8 @@ docker compose up -d
 | `GUACD_PORT` | 自建guacd服务PORT | - | docker-compose 已配置 |
 | `DEBUG` | 启动日志 | `true` | `false`：关闭，`true`：开启 |
 | `RDP_PORT` | RDP服务端口 | - | 无特殊需求保持默认即可 |
-| `ENABLE_HTTPS` | 是否启用HTTPS | `0` | `0`：关闭<br/>`1`：自签证书（适合内网）<br/>`2`：合法证书（适合外网）<br/>外网建议使用 nginx/caddy 进行 HTTPS 转发 |
-| `HTTPS_PORT` | HTTPS端口 | `8092` | - |
+| `ENABLE_HTTPS` | 是否启用HTTPS | `1` | `0`：关闭<br/>`1`：自签证书（适合内网）<br/>`2`：合法证书（适合外网）<br/>外网建议使用 nginx/caddy 进行 HTTPS 转发 |
+| `HTTPS_PORT` | HTTPS端口 | `8092` | 默认启用，请使用 https 访问web端 |
 | `SSL_CERT_PATH` | HTTPS证书文件路径 | - | 当 `ENABLE_HTTPS=2` 时必须配置 |
 | `SSL_KEY_PATH` | HTTPS私钥文件路径 | - | 当 `ENABLE_HTTPS=2` 时必须配置 |
 

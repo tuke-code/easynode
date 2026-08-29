@@ -38,7 +38,7 @@ const startRdpServer = () => {
     })
 
     rdpServer.listen(RDP_PORT, () => {
-      logger.info(`RDP服务运行在端口: ${ RDP_PORT }`)
+      logger.info('RDP服务运行正常')
     })
   } catch (error) {
     logger.error('❌ RDP 初始化失败:', error.message)

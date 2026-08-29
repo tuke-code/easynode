@@ -113,6 +113,7 @@ class _DockerPanelState extends ConsumerState<DockerPanel> {
         server: server,
         authSession: authSession,
         cookieStore: ref.read(cookieStoreProvider),
+        certificateTrust: ref.read(certificateTrustProvider),
       );
     } catch (error) {
       if (!mounted) return;

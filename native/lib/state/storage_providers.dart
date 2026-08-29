@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api/cookie_store.dart';
 import '../core/storage/app_storage.dart';
 import '../core/storage/secure_storage.dart';
+import '../core/security/server_certificate_trust.dart';
 
 /// All four storage providers are bootstrap-only — `EasyNodeApp.bootstrap`
 /// constructs the concrete instances once and overrides them on the root
@@ -17,4 +18,8 @@ final secureStorageProvider = Provider<SecureAppStorage>((ref) {
 
 final cookieStoreProvider = Provider<SessionCookieStore>((ref) {
   throw UnimplementedError('cookieStoreProvider must be overridden');
+});
+
+final certificateTrustProvider = Provider<ServerCertificateTrustStore>((ref) {
+  throw UnimplementedError('certificateTrustProvider must be overridden');
 });

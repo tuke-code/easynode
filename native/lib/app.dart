@@ -14,6 +14,7 @@ import 'core/api/cookie_store.dart';
 import 'core/api/api_result.dart';
 import 'core/storage/app_storage.dart';
 import 'core/storage/secure_storage.dart';
+import 'core/security/server_certificate_trust.dart';
 import 'features/auth/auth_session.dart';
 import 'features/auth/login_controller.dart';
 import 'features/auth/login_page.dart';
@@ -42,6 +43,7 @@ class _Bootstrap {
     required this.initialPassword,
     required this.initialAuthState,
     required this.initialIpAccessDenied,
+    required this.certificateTrust,
   });
 
   final AppStorage appStorage;
@@ -52,6 +54,7 @@ class _Bootstrap {
   final String initialPassword;
   final AuthState initialAuthState;
   final bool initialIpAccessDenied;
+  final ServerCertificateTrustStore certificateTrust;
 }
 
 class EasyNodeApp extends StatelessWidget {
@@ -65,6 +68,7 @@ class EasyNodeApp extends StatelessWidget {
     final secureWrapper = SecureAppStorage(secure);
     final appStorage = AppStorage(prefs);
     final cookieStore = SessionCookieStore(secureWrapper);
+    final certificateTrust = ServerCertificateTrustStore(secureWrapper);
     final packageInfo = await PackageInfo.fromPlatform();
     final appVersion = packageInfo.buildNumber.isEmpty
         ? packageInfo.version
@@ -96,11 +100,13 @@ class EasyNodeApp extends StatelessWidget {
         deviceId.isNotEmpty;
 
     if (hasStoredLogin) {
+      await certificateTrust.prepare(appStorage.serverAddress);
       final api = ApiClient(
         serverAddress: appStorage.serverAddress,
         cookieStore: cookieStore,
         token: token,
         appVersion: appVersion,
+        certificateTrust: certificateTrust,
       );
       try {
         final pubKey = await api.getPublicKey();
@@ -150,6 +156,7 @@ class EasyNodeApp extends StatelessWidget {
         initialPassword: initialPassword,
         initialAuthState: initialAuthState,
         initialIpAccessDenied: initialIpAccessDenied,
+        certificateTrust: certificateTrust,
       ),
     );
   }
@@ -161,6 +168,7 @@ class EasyNodeApp extends StatelessWidget {
         appStorageProvider.overrideWithValue(_b.appStorage),
         secureStorageProvider.overrideWithValue(_b.secureStorage),
         cookieStoreProvider.overrideWithValue(_b.cookieStore),
+        certificateTrustProvider.overrideWithValue(_b.certificateTrust),
         authProvider.overrideWith(
           (ref) => AuthNotifier(ref, _b.initialAuthState),
         ),
@@ -210,6 +218,7 @@ class _AppRootState extends ConsumerState<_AppRoot> {
     super.initState();
     _loginController = LoginController(
       apiClientFactory: _buildAnonymousApiClient,
+      certificateTrust: ref.read(certificateTrustProvider),
     )..onLoginSuccess(_onLoginSuccess);
     // The restored client is constructed before ProviderScope exists. Bind
     // its session-failure handler once the global coordinator is available.
@@ -239,6 +248,7 @@ class _AppRootState extends ConsumerState<_AppRoot> {
       cookieStore: ref.read(cookieStoreProvider),
       token: token,
       appVersion: widget.appVersion,
+      certificateTrust: ref.read(certificateTrustProvider),
     );
   }
 

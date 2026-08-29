@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/ui/app_color_theme.dart';
 import '../../core/utils/jwt_expiry.dart';
 import '../../core/utils/validators.dart';
+import '../../core/security/server_certificate_trust.dart';
 import '../../l10n/app_localizations.dart';
 import '../../state/package_info_provider.dart';
 import 'auth_session.dart';
@@ -115,6 +116,20 @@ class _LoginPageState extends State<LoginPage> {
         await _submit();
         return;
       }
+      if (result.requiresCertificateConfirmation) {
+        setState(() => _submitting = false);
+        final certificate = result.certificate!;
+        final accepted = await _confirmCertificate(certificate);
+        if (!mounted || accepted != true) return;
+        try {
+          await widget.controller.trustCertificate(certificate);
+        } catch (error) {
+          if (mounted) setState(() => _errorMessage = error.toString());
+          return;
+        }
+        await _submit();
+        return;
+      }
       if (!result.success || result.session == null) {
         setState(() => _errorMessage = _resolveErrorMessage(result, l));
         return;
@@ -140,6 +155,69 @@ class _LoginPageState extends State<LoginPage> {
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(l.tr('common.continue')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _confirmCertificate(PresentedServerCertificate certificate) {
+    final l = AppLocalizations.of(context);
+    final previous = certificate.previousFingerprint;
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          l.tr(
+            certificate.replacesTrustedCertificate
+                ? 'login.certificateChangedTitle'
+                : 'login.certificateTitle',
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l.tr(
+                  certificate.replacesTrustedCertificate
+                      ? 'login.certificateChangedBody'
+                      : 'login.certificateBody',
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(l.tr('login.certificateServer')),
+              const SizedBox(height: 4),
+              SelectableText(certificate.origin),
+              const SizedBox(height: 12),
+              Text(l.tr('login.certificateFingerprint')),
+              const SizedBox(height: 4),
+              SelectableText(
+                certificate.displayFingerprint,
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
+              if (previous != null) ...[
+                const SizedBox(height: 12),
+                Text(l.tr('login.certificatePreviousFingerprint')),
+                const SizedBox(height: 4),
+                SelectableText(
+                  formatCertificateFingerprint(previous),
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l.tr('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l.tr('login.trustCertificate')),
           ),
         ],
       ),

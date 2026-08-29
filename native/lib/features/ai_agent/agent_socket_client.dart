@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;
 
 import '../../core/api/cookie_store.dart';
+import '../../core/security/server_certificate_trust.dart';
 import '../auth/auth_session.dart';
 import 'agent_models.dart';
 
@@ -38,11 +39,14 @@ class AgentSocketClient {
   AgentSocketClient({
     required AuthSession authSession,
     required SessionCookieStore cookieStore,
+    required ServerCertificateTrustStore certificateTrust,
   }) : _authSession = authSession,
-       _cookieStore = cookieStore;
+       _cookieStore = cookieStore,
+       _certificateTrust = certificateTrust;
 
   final AuthSession _authSession;
   final SessionCookieStore _cookieStore;
+  final ServerCertificateTrustStore _certificateTrust;
   final _events = StreamController<Map<String, dynamic>>.broadcast();
   final _connections = StreamController<AgentConnectionStatus>.broadcast();
   final _errors = StreamController<String>.broadcast();
@@ -92,6 +96,7 @@ class AgentSocketClient {
           'Cookie': cookie,
           'Origin': _authSession.serverAddress,
         })
+        .setWebSocketConnector(_certificateTrust.connectWebSocket)
         .disableAutoConnect()
         .disableReconnection()
         .build();

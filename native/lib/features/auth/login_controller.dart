@@ -1,6 +1,7 @@
 import '../../core/api/api_client.dart';
 import '../../core/api/api_result.dart';
 import '../../core/crypto/rsa_crypto.dart';
+import '../../core/security/server_certificate_trust.dart';
 import '../../core/utils/jwt_expiry.dart';
 import '../../core/utils/validators.dart';
 import 'auth_session.dart';
@@ -13,6 +14,7 @@ class LoginResult {
     this.message = '',
     this.messageKey,
     this.session,
+    this.certificate,
   });
 
   /// `true` only when login fully succeeded.
@@ -32,6 +34,10 @@ class LoginResult {
   final String? messageKey;
 
   final AuthSession? session;
+
+  final PresentedServerCertificate? certificate;
+
+  bool get requiresCertificateConfirmation => certificate != null;
 }
 
 /// Builds an [ApiClient] for a given server address. Allows tests to inject
@@ -44,9 +50,13 @@ typedef LoginSuccessHandler =
 
 /// Orchestrates the native client login flow.
 class LoginController {
-  LoginController({required ApiClientFactory apiClientFactory, RsaCrypto? rsa})
-    : _apiClientFactory = apiClientFactory,
-      _rsa = rsa ?? RsaCrypto();
+  LoginController({
+    required ApiClientFactory apiClientFactory,
+    RsaCrypto? rsa,
+    ServerCertificateTrustStore? certificateTrust,
+  }) : _apiClientFactory = apiClientFactory,
+       _rsa = rsa ?? RsaCrypto(),
+       _certificateTrust = certificateTrust;
 
   /// Test factory that returns a controller without a real HTTP client. Real
   /// network calls will fail because the factory throws when invoked.
@@ -57,6 +67,15 @@ class LoginController {
 
   final ApiClientFactory _apiClientFactory;
   final RsaCrypto _rsa;
+  final ServerCertificateTrustStore? _certificateTrust;
+
+  Future<void> trustCertificate(PresentedServerCertificate certificate) async {
+    final trust = _certificateTrust;
+    if (trust == null) {
+      throw StateError('Certificate trust is not configured');
+    }
+    await trust.trust(certificate);
+  }
 
   Future<LoginResult> login({
     required String serverAddress,
@@ -93,8 +112,9 @@ class LoginController {
       );
     }
 
-    final api = _apiClientFactory(normalized);
     try {
+      await _certificateTrust?.prepare(normalized);
+      final api = _apiClientFactory(normalized);
       final publicKey = await api.getPublicKey();
       final ciphertext = _rsa.encryptPassword(publicKey, password);
       final response = await api.postJson('/login', {
@@ -130,6 +150,8 @@ class LoginController {
         await onLoginSuccess(session, savePassword ? password : null);
       }
       return LoginResult(success: true, session: session);
+    } on UntrustedServerCertificateException catch (error) {
+      return LoginResult(certificate: error.certificate);
     } on ApiFailure catch (error) {
       return LoginResult(message: error.message);
     } catch (error) {

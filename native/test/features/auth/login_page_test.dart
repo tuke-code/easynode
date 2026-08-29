@@ -6,7 +6,35 @@ import 'package:easynode_native/features/auth/auth_session.dart';
 import 'package:easynode_native/features/auth/login_controller.dart';
 import 'package:easynode_native/features/auth/login_page.dart';
 import 'package:easynode_native/core/ui/app_color_theme.dart';
+import 'package:easynode_native/core/security/server_certificate_trust.dart';
+import 'package:easynode_native/core/utils/jwt_expiry.dart';
 import 'package:easynode_native/l10n/app_localizations.dart';
+
+class _CertificateLoginController extends LoginController {
+  _CertificateLoginController(this.certificate)
+    : super(
+        apiClientFactory: (_, {String? token}) =>
+            throw StateError('API client is not used by this UI test'),
+      );
+
+  final PresentedServerCertificate certificate;
+
+  @override
+  Future<LoginResult> login({
+    required String serverAddress,
+    required String username,
+    required String password,
+    required String mfa2Token,
+    required bool httpRiskAccepted,
+    required bool savePassword,
+    LoginExpiry expiry = LoginExpiry.threeDays,
+  }) async => LoginResult(certificate: certificate);
+}
+
+PresentedServerCertificate _certificate() => PresentedServerCertificate(
+  origin: 'https://100.74.175.1:8092',
+  fingerprint: List.filled(32, 'ab').join(),
+);
 
 void main() {
   Widget wrap(Widget child) => ProviderScope(
@@ -118,5 +146,33 @@ void main() {
   testWidgets('exposes loginPageShouldWarnHttp helper', (tester) async {
     expect(loginPageShouldWarnHttp('http://10.0.0.1'), isTrue);
     expect(loginPageShouldWarnHttp('https://10.0.0.1'), isFalse);
+  });
+
+  testWidgets('offers cancel and permanent trust for an invalid certificate', (
+    tester,
+  ) async {
+    final certificate = _certificate();
+    final controller = _CertificateLoginController(certificate);
+    await pumpLoginPage(
+      tester,
+      LoginPage(
+        controller: controller,
+        initialServerAddress: certificate.origin,
+        initialUsername: 'root',
+        initialSavePassword: false,
+        onLoginSuccess: (_) {},
+      ),
+    );
+
+    await tester.ensureVisible(byKey(const Key('field-password')));
+    await tester.enterText(byKey(const Key('field-password')), 'secret');
+    await tester.tap(byKey(const Key('btn-login')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('无法验证服务器证书'), findsOneWidget);
+    expect(find.text('取消'), findsOneWidget);
+    expect(find.text('信任此证书'), findsOneWidget);
+    expect(find.text('仅本次继续'), findsNothing);
+    expect(find.text(certificate.displayFingerprint), findsOneWidget);
   });
 }

@@ -1,10 +1,11 @@
-import 'dart:io' show Platform;
+import 'dart:io' show HandshakeException, Platform;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import 'api_result.dart';
 import 'cookie_store.dart';
+import '../security/server_certificate_trust.dart';
 
 const String _fallbackNativeAppVersion = 'unknown';
 const String ipAccessDeniedCode = 'IP_ACCESS_DENIED';
@@ -125,7 +126,10 @@ class ApiClient {
     SessionFailureHandler? onSessionFailure,
     String? appVersion,
     Dio? dio,
-  }) : _cookieStore = cookieStore,
+    ServerCertificateTrustStore? certificateTrust,
+  }) : _serverAddress = serverAddress,
+       _certificateTrust = certificateTrust,
+       _cookieStore = cookieStore,
        _token = token,
        _onSessionFailure = onSessionFailure,
        _dio =
@@ -140,6 +144,9 @@ class ApiClient {
                },
              ),
            ) {
+    if (dio == null && certificateTrust != null) {
+      _dio.httpClientAdapter = certificateTrust.createDioAdapter();
+    }
     if (kDebugMode) {
       _dio.interceptors.add(
         InterceptorsWrapper(
@@ -195,6 +202,8 @@ class ApiClient {
   }
 
   final Dio _dio;
+  final String _serverAddress;
+  final ServerCertificateTrustStore? _certificateTrust;
   final SessionCookieStore _cookieStore;
   SessionFailureHandler? _onSessionFailure;
   String? _token;
@@ -255,6 +264,14 @@ class ApiClient {
     try {
       return _asJson(await send());
     } on DioException catch (error) {
+      final certificate = _certificateTrust?.pendingCertificateFor(
+        _serverAddress,
+      );
+      if (certificate != null &&
+          (error.type == DioExceptionType.badCertificate ||
+              error.error is HandshakeException)) {
+        throw UntrustedServerCertificateException(certificate);
+      }
       final failure = apiFailureFromDioException(error);
       if (failure is ApiSessionFailure) {
         final handler = _onSessionFailure;

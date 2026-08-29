@@ -37,4 +37,21 @@ class SecureAppStorage {
   Future<void> writeDeviceId(String value) =>
       _storage.write(key: 'loginDeviceId', value: value);
   Future<void> deleteDeviceId() => _storage.delete(key: 'loginDeviceId');
+
+  String _certificateFingerprintKey(String serverOrigin) =>
+      'serverCertificateFingerprint:$serverOrigin';
+
+  Future<String?> readServerCertificateFingerprint(String serverOrigin) {
+    return _storage.read(key: _certificateFingerprintKey(serverOrigin));
+  }
+
+  Future<void> writeServerCertificateFingerprint(
+    String serverOrigin,
+    String fingerprint,
+  ) {
+    return _storage.write(
+      key: _certificateFingerprintKey(serverOrigin),
+      value: fingerprint,
+    );
+  }
 }

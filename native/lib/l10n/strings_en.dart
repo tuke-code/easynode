@@ -44,6 +44,17 @@ const Map<String, String> stringsEn = {
   'login.httpRiskTitle': 'HTTP is not encrypted',
   'login.httpRiskBody':
       'All your data may be stolen. It is recommended to use HTTPS(only in intranet environments).',
+  'login.certificateTitle': 'Cannot verify server certificate',
+  'login.certificateBody':
+      'This certificate is not trusted by the system. Verify the server and fingerprint before permanently trusting it.',
+  'login.certificateChangedTitle': 'Server certificate changed',
+  'login.certificateChangedBody':
+      'The server certificate differs from the certificate trusted previously. Cancel unless you know the server certificate was replaced.',
+  'login.certificateServer': 'Server',
+  'login.certificateFingerprint': 'New SHA-256 fingerprint',
+  'login.certificatePreviousFingerprint':
+      'Previously trusted SHA-256 fingerprint',
+  'login.trustCertificate': 'Trust this certificate',
   'login.errEmptyUsername': 'Please enter a username',
   'login.errEmptyPassword': 'Please enter a password',
   'login.errInvalidServer': 'Please enter a valid server address',

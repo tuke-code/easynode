@@ -3,7 +3,7 @@ import path from 'node:path'
 const config = {
   httpPort: process.env.HTTP_PORT ? parseInt(process.env.HTTP_PORT) : 8082,
   httpsPort: process.env.HTTPS_PORT ? parseInt(process.env.HTTPS_PORT) : 8092,
-  enableHttps: process.env.ENABLE_HTTPS ? parseInt(process.env.ENABLE_HTTPS) : 0, // 0:关闭 1:自签证书 2:传入证书路径
+  enableHttps: process.env.ENABLE_HTTPS ? parseInt(process.env.ENABLE_HTTPS) : 1, // 0:关闭 1:自签证书 2:传入证书路径
   sslCertPath: process.env.SSL_CERT_PATH,
   sslKeyPath: process.env.SSL_KEY_PATH,
   uploadDir: path.join(process.cwd(),'app/db'),

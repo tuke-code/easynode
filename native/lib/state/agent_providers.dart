@@ -191,6 +191,7 @@ final agentControllerProvider =
       final socket = AgentSocketClient(
         authSession: session,
         cookieStore: ref.watch(cookieStoreProvider),
+        certificateTrust: ref.watch(certificateTrustProvider),
       );
       return AgentStateNotifier(
         repository: ref.watch(agentRepositoryProvider),

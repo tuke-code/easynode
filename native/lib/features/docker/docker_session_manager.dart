@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 
 import '../../core/api/cookie_store.dart';
+import '../../core/security/server_certificate_trust.dart';
 import '../auth/auth_session.dart';
 import '../servers/server_model.dart';
 import 'docker_container.dart';
@@ -61,6 +62,7 @@ class DockerSessionManager extends ChangeNotifier {
     required ServerModel server,
     required AuthSession authSession,
     required SessionCookieStore cookieStore,
+    required ServerCertificateTrustStore certificateTrust,
   }) async {
     final existing = _sessions[server.id];
     if (existing != null) {
@@ -78,6 +80,7 @@ class DockerSessionManager extends ChangeNotifier {
     final client = DockerSocketClient(
       authSession: authSession,
       cookieStore: cookieStore,
+      certificateTrust: certificateTrust,
       hostId: server.id,
     );
     final session = DockerSessionState(server: server, client: client);
