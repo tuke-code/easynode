@@ -7,6 +7,12 @@ import { v4 as uuidv4 } from 'uuid'
 import { sftpCacheDir } from '../config/index.js'
 import { createSecureWs } from '../utils/ws-tool.js'
 import { HostListDB, FavoriteSftpDB } from '../utils/db-class.js'
+import {
+  assertPathInside,
+  resolvePathInside,
+  validateRemoteFileName,
+  validateTaskId
+} from '../utils/sftp-cache-path.js'
 import { getConnectionOptions, handleProxyAndJumpHostConnection } from './terminal.js'
 const hostListDB = new HostListDB().getInstance()
 const favoriteSftpDB = new FavoriteSftpDB().getInstance()
@@ -16,6 +22,22 @@ const { Client: SSHClient } = ssh2Module
 function shellEscape(s) {
   // eslint-disable-next-line quotes
   return "'" + s.replace(/'/g, "'\\''") + "'"
+}
+
+function removeCacheFileSync(filePath) {
+  if (!filePath) return
+  const safeFilePath = assertPathInside(sftpCacheDir, filePath)
+  if (fs.existsSync(safeFilePath)) fs.unlinkSync(safeFilePath)
+}
+
+async function removeCacheFile(filePath) {
+  if (!filePath) return
+  const safeFilePath = assertPathInside(sftpCacheDir, filePath)
+  try {
+    await fs.unlink(safeFilePath)
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error
+  }
 }
 
 /**
@@ -581,17 +603,22 @@ const listenAction = (sftpClient, socket) => {
   })
 
   // 下载功能
-  socket.on('download_request', async ({ dirPath, targets }) => {
+  socket.on('download_request', async ({ dirPath, targets } = {}) => {
     let remoteTarPath = null // 跟踪远程临时文件路径
     let taskId = null // 声明在外层以便错误处理时访问
     try {
-      if (!targets || targets.length === 0) {
+      if (typeof dirPath !== 'string' || !Array.isArray(targets) || targets.length === 0) {
         throw new Error('未选择要下载的文件')
       }
 
-      taskId = Date.now() + '-' + Math.random().toString(36).slice(2)
-      const taskDir = rawPath.join(sftpCacheDir, taskId)
-      await fs.ensureDir(taskDir)
+      targets.forEach(target => {
+        if (!target || typeof target !== 'object') throw new Error('下载目标非法')
+        validateRemoteFileName(target.name)
+      })
+
+      taskId = uuidv4()
+      const taskDir = resolvePathInside(sftpCacheDir, taskId)
+      await fs.ensureDir(taskDir, { mode: 0o700 })
 
       const abortController = new AbortController()
       downloadTasks.set(taskId, {
@@ -612,7 +639,7 @@ const listenAction = (sftpClient, socket) => {
           // 文件夹：先在远端打包
           const tarFileName = `${ target.name }.tar.gz`
           remoteTarPath = `/tmp/${ taskId }.tar.gz`
-          const localTarPath = rawPath.join(taskDir, tarFileName)
+          const localTarPath = resolvePathInside(taskDir, tarFileName)
 
           // 保存远程文件路径到任务中
           downloadTasks.get(taskId).remoteTarPath = remoteTarPath
@@ -648,7 +675,7 @@ const listenAction = (sftpClient, socket) => {
           socket.emit('download_ready', { taskId, fileName: tarFileName })
         } else {
           // 单文件：直接下载
-          const localFilePath = rawPath.join(taskDir, target.name)
+          const localFilePath = resolvePathInside(taskDir, target.name)
 
           // 获取文件大小
           const statResult = await sftpClient.stat(srcPath)
@@ -662,7 +689,7 @@ const listenAction = (sftpClient, socket) => {
         // 多文件逻辑：打包所有选中的文件/文件夹
         const archiveName = `selected-files-${ Date.now() }.tar.gz`
         remoteTarPath = `/tmp/${ taskId }.tar.gz`
-        const localTarPath = rawPath.join(taskDir, archiveName)
+        const localTarPath = resolvePathInside(taskDir, archiveName)
 
         // 保存远程文件路径到任务中
         downloadTasks.get(taskId).remoteTarPath = remoteTarPath
@@ -991,9 +1018,9 @@ const listenAction = (sftpClient, socket) => {
       }
 
       // 生成缓存文件名（使用UUID避免猜测和冲突）
-      const fileName = rawPath.basename(filePath)
-      const cacheFileName = `${ uuidv4() }_${ fileName }`
-      const localImagePath = rawPath.join(sftpCacheDir, cacheFileName)
+      const fileName = rawPath.posix.basename(filePath)
+      const cacheFileName = `${ uuidv4() }.${ ext }`
+      const localImagePath = resolvePathInside(sftpCacheDir, cacheFileName)
 
       logger.info(`开始下载图片到缓存: ${ filePath } -> ${ localImagePath }`)
 
@@ -1055,17 +1082,20 @@ const listenAction = (sftpClient, socket) => {
   // -------- 上传相关功能 --------
 
   // 开始上传
-  socket.on('upload_start', async ({ taskId, fileName, fileSize, targetPath }) => {
+  socket.on('upload_start', async ({ taskId, fileName, fileSize, targetPath } = {}) => {
     try {
       logger.info(`收到上传请求: ${ fileName }, 大小: ${ (fileSize / 1024 / 1024 / 1024).toFixed(2) }GB`)
 
-      if (!taskId || !fileName || !fileSize || !targetPath) {
+      validateTaskId(taskId)
+      validateRemoteFileName(fileName)
+      if (!Number.isSafeInteger(fileSize) || fileSize <= 0 || typeof targetPath !== 'string' || !targetPath) {
         throw new Error('上传参数不完整')
       }
+      if (uploadTasks.has(taskId)) throw new Error('上传任务已存在')
 
-      // 创建临时文件路径（清理文件名中的特殊字符）
-      const safeFileName = fileName.replace(/[<>:"|?*]/g, '_')
-      const tempFilePath = rawPath.join(sftpCacheDir, `temp_${ taskId }_${ safeFileName }`)
+      // 本地缓存名完全由服务端生成，客户端参数不得参与本地路径构造
+      fs.ensureDirSync(sftpCacheDir, { mode: 0o700 })
+      const tempFilePath = resolvePathInside(sftpCacheDir, `.upload-${ uuidv4() }.part`)
       // 创建上传任务
       const uploadTask = {
         taskId,
@@ -1093,8 +1123,9 @@ const listenAction = (sftpClient, socket) => {
   })
 
   // 上传文件分片
-  socket.on('upload_chunk', async ({ taskId, chunkIndex, chunkData, totalChunks, isLastChunk }) => {
+  socket.on('upload_chunk', async ({ taskId, chunkIndex, chunkData, totalChunks, isLastChunk } = {}) => {
     try {
+      validateTaskId(taskId)
       const task = uploadTasks.get(taskId)
 
       if (!task) {
@@ -1110,7 +1141,11 @@ const listenAction = (sftpClient, socket) => {
         // 确保缓存目录存在
         fs.ensureDirSync(sftpCacheDir)
 
-        task.writeStream = fs.createWriteStream(task.tempFilePath)
+        const safeTempFilePath = assertPathInside(sftpCacheDir, task.tempFilePath)
+        task.writeStream = fs.createWriteStream(safeTempFilePath, {
+          flags: 'wx',
+          mode: 0o600
+        })
         task.totalChunks = totalChunks
 
         // 处理写入流错误（将错误标记到任务中）
@@ -1196,6 +1231,7 @@ const listenAction = (sftpClient, socket) => {
   async function completeUpload(task) {
     try {
       logger.info(`文件接收完成，准备传输: ${ task.fileName }`)
+      const safeTempFilePath = assertPathInside(sftpCacheDir, task.tempFilePath)
 
       // 关闭写入流
       if (task.writeStream) {
@@ -1209,7 +1245,7 @@ const listenAction = (sftpClient, socket) => {
       }
 
       // 验证文件大小
-      const stats = fs.statSync(task.tempFilePath)
+      const stats = fs.statSync(safeTempFilePath)
       if (stats.size !== task.fileSize) {
         throw new Error(`文件大小不匹配: 期望 ${ task.fileSize }, 实际 ${ stats.size }`)
       }
@@ -1235,7 +1271,7 @@ const listenAction = (sftpClient, socket) => {
       let lastSftpUpdateTime = sftpStartTime
       let lastSftpUploadedSize = 0
 
-      await sftpClient.fastPut(task.tempFilePath, task.targetPath, {
+      await sftpClient.fastPut(safeTempFilePath, task.targetPath, {
         step: (transferredBytes) => {
           const now = Date.now()
           const sftpProgress = Math.min((transferredBytes / task.fileSize) * 100, 100)
@@ -1283,9 +1319,9 @@ const listenAction = (sftpClient, socket) => {
       })
     } finally {
       // 确保清理临时文件
-      if (task.tempFilePath && fs.existsSync(task.tempFilePath)) {
+      if (task.tempFilePath) {
         try {
-          fs.unlinkSync(task.tempFilePath)
+          removeCacheFileSync(task.tempFilePath)
           logger.info(`已清理临时文件: ${ task.tempFilePath }`)
         } catch (cleanupErr) {
           logger.warn('清理临时文件失败:', cleanupErr.message)
@@ -1303,7 +1339,7 @@ const listenAction = (sftpClient, socket) => {
   }
 
   // 取消上传
-  socket.on('upload_cancel', ({ taskId }) => {
+  socket.on('upload_cancel', ({ taskId } = {}) => {
     const task = uploadTasks.get(taskId)
     if (task) {
       task.abortController.abort()
@@ -1312,9 +1348,9 @@ const listenAction = (sftpClient, socket) => {
         task.writeStream.destroy()
       }
       // 清理临时文件
-      if (task.tempFilePath && fs.existsSync(task.tempFilePath)) {
+      if (task.tempFilePath) {
         try {
-          fs.unlinkSync(task.tempFilePath)
+          removeCacheFileSync(task.tempFilePath)
           logger.info(`取消上传，已清理临时文件: ${ task.tempFilePath }`)
         } catch (cleanupErr) {
           logger.warn('清理临时文件失败:', cleanupErr.message)
@@ -1376,9 +1412,9 @@ const listenAction = (sftpClient, socket) => {
             task.writeStream.destroy()
           }
           // 清理临时文件
-          if (task.tempFilePath && fs.existsSync(task.tempFilePath)) {
+          if (task.tempFilePath) {
             try {
-              fs.unlinkSync(task.tempFilePath)
+              removeCacheFileSync(task.tempFilePath)
               logger.info(`连接断开，已清理临时文件: ${ task.tempFilePath }`)
             } catch (cleanupErr) {
               logger.warn('清理临时文件失败:', cleanupErr.message)
@@ -1423,9 +1459,9 @@ const listenAction = (sftpClient, socket) => {
           task.writeStream.destroy()
         }
         // 清理临时文件
-        if (task.tempFilePath && fs.existsSync(task.tempFilePath)) {
+        if (task.tempFilePath) {
           try {
-            fs.unlinkSync(task.tempFilePath)
+            removeCacheFileSync(task.tempFilePath)
             logger.info(`清理超时任务临时文件: ${ task.tempFilePath }`)
           } catch (cleanupErr) {
             logger.warn('清理临时文件失败:', cleanupErr.message)
@@ -1481,7 +1517,7 @@ const listenAction = (sftpClient, socket) => {
       // 错误处理函数
       const handleError = (err) => {
         cleanup()
-        fs.unlink(localPath).catch(() => {})
+        removeCacheFile(localPath).catch(() => {})
         reject(err)
       }
 
@@ -1528,12 +1564,16 @@ const listenAction = (sftpClient, socket) => {
 
       try {
         readStream = sftpClient.createReadStream(remotePath)
-        writeStream = fs.createWriteStream(localPath)
+        const safeLocalPath = assertPathInside(sftpCacheDir, localPath)
+        writeStream = fs.createWriteStream(safeLocalPath, {
+          flags: 'wx',
+          mode: 0o600
+        })
 
         readStream.on('data', (chunk) => {
           if (abortController.signal.aborted) {
             cleanup()
-            fs.unlink(localPath).catch(() => {}) // 删除部分下载的文件
+            removeCacheFile(localPath).catch(() => {}) // 删除部分下载的文件
             reject(new Error('下载已取消'))
             return
           }
