@@ -10,6 +10,7 @@ import { getOnekeyRecord, removeOnekeyRecord } from '../controller/onekey.js'
 import { getLog, saveIpWhiteList, removeSomeLoginRecords, revokeLoginSid } from '../controller/sessionLog.js'
 import { getAIConfig, saveAIConfig, getAIModels, updateAIPreferences } from '../controller/chat.js'
 import { getAgentSessions, getAgentSessionDetail, updateAgentSession, forkAgentSession, removeAgentSession, clearAgentSessions, editAgentSessionMessage } from '../controller/agent-session.js'
+import { getAgentMcpServers, addAgentMcpServer, editAgentMcpServer, removeAgentMcpServer, testAgentMcpConnection, discoverAgentMcpServer } from '../controller/agent-mcp.js'
 import { getProxyList, addProxy, updateProxy, removeProxy } from '../controller/proxy.js'
 import { getTerminalConfig, saveTerminalConfig } from '../controller/terminal-config.js'
 import { getServerListConfig, saveServerListConfig } from '../controller/server-list-config.js'
@@ -363,6 +364,39 @@ const aiConfig = [
   }
 ]
 
+const agentMcp = [
+  {
+    method: 'get',
+    path: '/agent/mcp-servers',
+    controller: getAgentMcpServers
+  },
+  {
+    method: 'post',
+    path: '/agent/mcp-servers',
+    controller: addAgentMcpServer
+  },
+  {
+    method: 'post',
+    path: '/agent/mcp-servers/test-connection',
+    controller: testAgentMcpConnection
+  },
+  {
+    method: 'put',
+    path: '/agent/mcp-servers/:id',
+    controller: editAgentMcpServer
+  },
+  {
+    method: 'delete',
+    path: '/agent/mcp-servers/:id',
+    controller: removeAgentMcpServer
+  },
+  {
+    method: 'post',
+    path: '/agent/mcp-servers/:id/discover',
+    controller: discoverAgentMcpServer
+  }
+]
+
 const proxy = [
   {
     method: 'get',
@@ -457,6 +491,7 @@ export default [].concat(
   onekey,
   log,
   aiConfig,
+  agentMcp,
   proxy,
   terminalConfig,
   serverListConfig,

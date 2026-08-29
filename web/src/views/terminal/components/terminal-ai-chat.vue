@@ -213,6 +213,7 @@ const draft = ref('')
 const showSessions = ref(false)
 const editingMessageId = ref('')
 let autoFollow = true
+let lastScrollTop = 0
 let bodyResizeObserver = null
 const isDark = computed(() => $store.isDark)
 const presets = computed(() => (options.presets.length ? options.presets : PRESET_FALLBACK))
@@ -406,13 +407,18 @@ function scrollToBottom() {
     const wrap = scrollRef.value?.wrapRef
     if (!wrap) return
     wrap.scrollTop = wrap.scrollHeight
+    lastScrollTop = wrap.scrollTop
   })
 }
 
 function handleScroll({ scrollTop }) {
   const wrap = scrollRef.value?.wrapRef
   if (!wrap) return
-  autoFollow = wrap.scrollHeight - scrollTop - wrap.clientHeight < 40
+  const isAtBottom = wrap.scrollHeight - scrollTop - wrap.clientHeight < 40
+  // 程序化下滚的事件可能晚于下一次内容增高；只有真正向上滚才退出跟随。
+  if (scrollTop < lastScrollTop) autoFollow = false
+  else if (isAtBottom) autoFollow = true
+  lastScrollTop = scrollTop
 }
 
 watch(() => props.prefill, (value) => {

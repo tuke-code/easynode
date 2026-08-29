@@ -163,6 +163,15 @@ export function useAgentSession(config = {}) {
         options.plusAvailable = Boolean(event.plusAvailable)
         return
 
+      case 'turn_start':
+        if (Array.isArray(event.availableToolMetadata)) {
+          const current = new Map(options.tools.map((tool) => [tool.name, tool]))
+          for (const tool of event.availableToolMetadata) current.set(tool.name, tool)
+          options.tools = [...current.values()]
+        }
+        applyEvent(state, event)
+        return
+
       case 'session_created':
         state.sessionId = event.session.id
         state.title = event.session.title

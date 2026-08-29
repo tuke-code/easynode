@@ -1,5 +1,7 @@
 import axios from '@/utils/axios'
 
+const MCP_DISCOVERY_REQUEST_TIMEOUT = 605 * 1000
+
 export default {
   getOsInfo (params = {}) {
     return axios({ url: '/monitor', method: 'get', params })
@@ -196,6 +198,35 @@ export default {
   },
   clearAgentSessions(params) {
     return axios({ url: '/agent-sessions', method: 'delete', params })
+  },
+  getAgentMcpServers() {
+    return axios({ url: '/agent/mcp-servers', method: 'get' })
+  },
+  addAgentMcpServer(data) {
+    return axios({ url: '/agent/mcp-servers', method: 'post', data, timeout: MCP_DISCOVERY_REQUEST_TIMEOUT })
+  },
+  testAgentMcpConnection(data) {
+    return axios({
+      url: '/agent/mcp-servers/test-connection',
+      method: 'post',
+      data,
+      timeout: MCP_DISCOVERY_REQUEST_TIMEOUT,
+      skipErrorMessage: true
+    })
+  },
+  updateAgentMcpServer(id, data) {
+    return axios({ url: `/agent/mcp-servers/${ id }`, method: 'put', data, timeout: MCP_DISCOVERY_REQUEST_TIMEOUT })
+  },
+  deleteAgentMcpServer(id) {
+    return axios({ url: `/agent/mcp-servers/${ id }`, method: 'delete' })
+  },
+  discoverAgentMcpServer(id) {
+    return axios({
+      url: `/agent/mcp-servers/${ id }/discover`,
+      method: 'post',
+      timeout: MCP_DISCOVERY_REQUEST_TIMEOUT,
+      skipErrorMessage: true
+    })
   },
   removeSomeLoginRecords() {
     return axios({ url: '/remove-some-login-records', method: 'delete' })

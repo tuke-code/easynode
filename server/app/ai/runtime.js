@@ -14,6 +14,8 @@ import { createHash } from 'node:crypto'
 import { resolveModel } from './provider.js'
 import { buildTools } from './tools/index.js'
 import { getToolSpec, requiresPlus } from './tools/spec.js'
+import { loadToolDefinitions, publicToolMetadata, toolInfo } from './tools/registry.js'
+import { createMcpClientManager } from './mcp/client.js'
 import { checkRestrictedToolAccess } from './tools/executors.js'
 import { buildSystemPrompt } from './prompt.js'
 import { classifyCommand, Risk, primaryReason } from './safety.js'
@@ -75,19 +77,27 @@ async function loadHostSummaries(hostIds, sessionMode) {
  */
 function createToolApproval(ctx) {
   return async ({ toolCall }) => {
-    const spec = getToolSpec(toolCall.toolName)
+    const spec = ctx.toolDefinitionMap?.get(toolCall.toolName) || getToolSpec(toolCall.toolName)
     if (!spec) return 'not-applicable'
 
     const input = toolCall.input || {}
+    const info = toolInfo(spec)
+    if (info) {
+      ctx.toolMeta[toolCall.toolCallId] = {
+        ...(ctx.toolMeta[toolCall.toolCallId] || {}),
+        toolInfo: info
+      }
+    }
     let approvalInput = input
     let approvalPreview = null
     let dataRisk = null
     let approvedReadPath = null
     let hostPolicy = ctx.policy
     let hostName
-    if (input.hostId) {
+    const hostId = spec.hostArg ? input[spec.hostArg] : null
+    if (hostId) {
       try {
-        const access = await resolveHostAccess(input.hostId, ctx)
+        const access = await resolveHostAccess(hostId, ctx)
         hostPolicy = access.policy
         hostName = access.host.name
       } catch (error) {
@@ -120,7 +130,10 @@ function createToolApproval(ctx) {
         scriptName: script.name,
         command: script.command
       }
-      ctx.toolMeta[toolCall.toolCallId] = { scriptName: script.name }
+      ctx.toolMeta[toolCall.toolCallId] = {
+        ...(ctx.toolMeta[toolCall.toolCallId] || {}),
+        scriptName: script.name
+      }
     }
 
     if (toolCall.toolName === 'read_file') {
@@ -181,7 +194,7 @@ function createToolApproval(ctx) {
       }
     }
 
-    if (!isEffectAllowed(effect, hostPolicy.maxEffect)) {
+    if (hostId && !isEffectAllowed(effect, hostPolicy.maxEffect)) {
       return denyToolCall(ctx, toolCall, input,
         `主机「${ hostName || input.hostId }」仅允许 AI 读取，不能执行${ effect === Effect.DELETE ? '删除' : '写入' }操作`,
         '主机策略')
@@ -235,11 +248,11 @@ function createToolApproval(ctx) {
       }
     }
 
-    const shouldApprove = needsApproval({
+    const shouldApprove = spec.approvalPolicy === 'always' || needsApproval({
       mode: hostPolicy.mode,
       effect,
       risk,
-      hostOperation: Boolean(input.hostId)
+      hostOperation: Boolean(hostId)
     })
 
     if (!shouldApprove) {
@@ -263,10 +276,14 @@ function createToolApproval(ctx) {
       riskLevel: risk,
       risk: reason,
       hostName: hostName || ctx.hosts.find((item) => item.hostId === input.hostId)?.name,
+      providerName: spec.source?.type === 'mcp' ? spec.source.name : undefined,
+      toolInfo: info,
       preview: approvalPreview,
       sensitiveDisclosure,
-      grantable: hostPolicy.mode === Mode.ASSIST && effect === Effect.WRITE
-        && risk === Risk.NORMAL && !isTerminalCommand,
+      grantable: spec.source?.type === 'mcp' || (
+        hostPolicy.mode === Mode.ASSIST && effect === Effect.WRITE
+          && risk === Risk.NORMAL && !isTerminalCommand
+      ),
       emit: ctx.emit,
       signal: ctx.signal
     })
@@ -371,6 +388,7 @@ export async function runTurn(params) {
     authorizedScripts: new Map(),
     approvedReads: new Map(),
     sensitiveOutputs: new Set(),
+    mcpClients: createMcpClientManager(signal),
     signal,
     emit,
     requestTerminalDispatch: params.scope === 'terminal'
@@ -390,14 +408,18 @@ export async function runTurn(params) {
           ...toolMeta[event.toolCallId],
           tool: event.tool,
           durationMs: event.durationMs,
-          failed: event.phase === 'error' || undefined
+          failed: event.phase === 'error' || undefined,
+          toolInfo: event.toolInfo
         }
       }
       emit({ type: 'tool_progress', ...event })
     }
   }
 
-  const tools = buildTools(ctx)
+  const toolDefinitions = await loadToolDefinitions(ctx)
+  ctx.toolDefinitions = toolDefinitions
+  ctx.toolDefinitionMap = new Map(toolDefinitions.map((definition) => [definition.name, definition]))
+  const tools = buildTools(ctx, toolDefinitions)
 
   emit({
     type: 'turn_start',
@@ -406,6 +428,7 @@ export async function runTurn(params) {
     policy: { mode: policy.mode, maxEffect: policy.maxEffect, preset: policy.preset },
     clamped: policy.clamped,
     availableTools: Object.keys(tools),
+    availableToolMetadata: toolDefinitions.map(publicToolMetadata),
     scope: ctx.scope,
     terminalPermission: ctx.scope === 'terminal' ? ctx.terminalPermission : undefined
   })
@@ -553,21 +576,25 @@ async function streamOnce({ model, system, messages, tools, ctx, maxSteps, toolM
           emit({ type: 'reasoning_delta', text: part.text })
           break
 
-        case 'tool-call':
+        case 'tool-call': {
+          const info = toolInfo(ctx.toolDefinitionMap?.get(part.toolName))
           emit({
             type: 'tool_call',
             toolCallId: part.toolCallId,
             tool: part.toolName,
-            input: part.input
+            input: part.input,
+            toolInfo: info
           })
           break
+        }
 
         case 'tool-result':
           emit({
             type: 'tool_result',
             toolCallId: part.toolCallId,
             tool: part.toolName,
-            output: part.output
+            output: part.output,
+            toolInfo: toolInfo(ctx.toolDefinitionMap?.get(part.toolName))
           })
           awaitingModelAfterTool = { toolCallId: part.toolCallId, startedAt: Date.now() }
           emit({ type: 'awaiting_model', toolCallId: part.toolCallId })
@@ -578,7 +605,8 @@ async function streamOnce({ model, system, messages, tools, ctx, maxSteps, toolM
             type: 'tool_result',
             toolCallId: part.toolCallId,
             tool: part.toolName,
-            error: String(part.error?.message || part.error)
+            error: String(part.error?.message || part.error),
+            toolInfo: toolInfo(ctx.toolDefinitionMap?.get(part.toolName))
           })
           awaitingModelAfterTool = { toolCallId: part.toolCallId, startedAt: Date.now() }
           emit({ type: 'awaiting_model', toolCallId: part.toolCallId })
@@ -629,6 +657,8 @@ async function streamOnce({ model, system, messages, tools, ctx, maxSteps, toolM
       alreadyReported: true,
       partialResult: { finishReason: 'error', usage: null, text: accumulated, responseMessages: partial, toolMeta }
     })
+  } finally {
+    await ctx.mcpClients.close()
   }
 }
 

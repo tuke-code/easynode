@@ -12,6 +12,9 @@
           <template v-if="item.hostName">
             将在 <strong>{{ item.hostName }}</strong> 上
           </template>
+          <template v-else-if="item.providerName || item.toolInfo?.providerName">
+            将通过 <strong>{{ item.providerName || item.toolInfo.providerName }}</strong>
+          </template>
           执行 <strong>{{ toolLabel }}</strong>
         </span>
         <span v-if="item.effect" class="effect_tag">{{ effectLabel }}</span>
@@ -94,16 +97,16 @@
 
     <div class="prompt_actions">
       <el-button type="primary" size="small" @click="emit('respond', item.requestId, true, 'once')">
-        允许
+        仅允许本次
       </el-button>
       <!-- 高危操作后端不接受会话级授权，按钮也不该出现 -->
       <el-button
         v-if="item.grantable !== false"
         size="small"
-        :title="item.grantLabel ? `仅复用完全相同的操作：${ item.grantLabel }` : ''"
+        :title="sessionGrantTitle"
         @click="emit('respond', item.requestId, true, 'session')"
       >
-        本会话允许同一操作
+        {{ isMcpTool ? '本会话允许此工具' : '本会话允许同一操作' }}
       </el-button>
       <el-button
         type="danger"
@@ -139,6 +142,13 @@ const props = defineProps({
 const emit = defineEmits(['respond',])
 
 const isDark = computed(() => $store.isDark)
+const isMcpTool = computed(() => props.item.toolInfo?.source === 'mcp')
+const sessionGrantTitle = computed(() => {
+  if (!props.item.grantLabel) return ''
+  return isMcpTool.value
+    ? `本会话内不再询问：${ props.item.grantLabel }`
+    : `仅复用完全相同的操作：${ props.item.grantLabel }`
+})
 const effectLabel = computed(() => ({ read: '读取', write: '写入', delete: '删除' }[props.item.effect] || props.item.effect))
 const now = ref(Date.now())
 let timer = null
@@ -174,7 +184,7 @@ const TOOL_LABELS = {
   write_file: '写入文件'
 }
 
-const toolLabel = computed(() => TOOL_LABELS[props.item.tool] || props.item.tool)
+const toolLabel = computed(() => props.item.toolInfo?.displayName || TOOL_LABELS[props.item.tool] || props.item.tool)
 const writePreview = computed(() => (
   props.item.tool === 'write_file' && props.item.preview?.type === 'write_file'
     ? props.item.preview

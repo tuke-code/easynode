@@ -4,6 +4,7 @@
       <el-icon class="toggle_icon" :class="{ 'is_expanded': expanded }"><ArrowRight /></el-icon>
 
       <span class="tool_name">{{ toolLabel }}</span>
+      <span v-if="part.toolInfo?.source === 'mcp'" class="source_tag">MCP · {{ part.toolInfo.providerName }}</span>
 
       <code v-if="summary" class="tool_summary" :title="summary">{{ summary }}</code>
 
@@ -97,7 +98,7 @@ const TOOL_LABELS = {
   read_output: '回读输出'
 }
 
-const toolLabel = computed(() => TOOL_LABELS[props.part.tool] || props.part.tool)
+const toolLabel = computed(() => props.part.toolInfo?.displayName || TOOL_LABELS[props.part.tool] || props.part.tool)
 
 /** 卡片折叠时显示最能说明这次调用干了什么的那个参数 */
 const summary = computed(() => {
@@ -237,7 +238,8 @@ async function copyOutput() {
 
     .risk_tag,
     .approval_tag,
-    .progress_tag {
+    .progress_tag,
+    .source_tag {
       flex-shrink: 0;
       padding: 1px 6px;
       border-radius: 4px;

@@ -11,7 +11,7 @@ const SENSITIVE_BODY_KEYS = [
   'password', 'pwd', 'code', 'captcha', 'token',
   'oldloginname', 'oldpwd', 'newloginname', 'newpwd',
   'loginname', 'ciphertext', 'jwtexpires', 'mfa2token',
-  'encryptedkey', 'privatekey', 'passphrase', 'secret'
+  'encryptedkey', 'privatekey', 'passphrase', 'secret', 'authorization'
 ]
 
 const MAX_BODY_LOG_LEN = 1000 // 请求 body 最多记录长度

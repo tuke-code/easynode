@@ -23,7 +23,7 @@ import { clearBySession } from '../ai/output-store.js'
 import { disconnect as disconnectHost } from '../ai/ssh.js'
 import { PRESETS, DEFAULT_PRESET } from '../ai/policy.js'
 import { listConfiguredModels } from '../ai/provider.js'
-import { TOOL_SPECS } from '../ai/tools/spec.js'
+import { listToolMetadata } from '../ai/tools/registry.js'
 // 会话的读取走 REST（controller/agent-session.js），socket 只负责跑 turn。
 // 同一件事只留一条路径，避免两边行为漂移。
 import { createSession, getSession, appendTurn } from '../ai/session-store.js'
@@ -86,8 +86,8 @@ export default (httpServer) => {
     const emit = createEmitter(socket)
 
     // 连接建立后先告诉前端可用的模型与权限预设，避免前端再发一轮 HTTP
-    listConfiguredModels()
-      .then((config) => {
+    Promise.all([listConfiguredModels(), listToolMetadata()])
+      .then(([config, tools]) => {
         emit({
           type: 'ready',
           models: config.models,
@@ -95,14 +95,7 @@ export default (httpServer) => {
           presets: Object.values(PRESETS).map(({ key, label, desc }) => ({ key, label, desc })),
           defaultPreset: DEFAULT_PRESET,
           plusAvailable: isPlusAvailable(),
-          tools: TOOL_SPECS.map(({
-            name, effect, plusPolicy, description
-          }) => ({
-            name,
-            effect,
-            plusPolicy,
-            description
-          }))
+          tools
         })
       })
       .catch((error) => emit({ type: 'error', message: error.message }))

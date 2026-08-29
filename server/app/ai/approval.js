@@ -32,7 +32,14 @@ const sessionGrants = new Map()
  * 服务操作才允许复用。文件变更、动态/复合命令和无法可靠归一化的命令一律
  * 只能单次批准，避免一次 `rm` 授权扩散成同主机上的任意删除。
  */
-export function sessionGrantScope(toolName, input) {
+export function sessionGrantScope(toolName, input, toolInfo) {
+  if (toolInfo?.source === 'mcp' && toolInfo.providerId && toolInfo.remoteName) {
+    return {
+      key: `mcp:${ encodeURIComponent(toolInfo.providerId) }:${ encodeURIComponent(toolInfo.remoteName) }`,
+      label: `${ toolInfo.providerName || 'MCP' } · ${ toolInfo.displayName || toolInfo.remoteName }`
+    }
+  }
+
   const hostId = input?.hostId || 'any'
 
   if (toolName === 'exec_command') {
@@ -78,8 +85,8 @@ export function sessionGrantScope(toolName, input) {
 }
 
 /** 供测试与诊断检查授权指纹；不可授权时返回空字符串。 */
-export function grantKey(toolName, input) {
-  return sessionGrantScope(toolName, input)?.key || ''
+export function grantKey(toolName, input, toolInfo) {
+  return sessionGrantScope(toolName, input, toolInfo)?.key || ''
 }
 
 export function hasSessionGrant(sessionId, key) {
@@ -117,6 +124,8 @@ export function requestApproval(params) {
     effect,
     targets,
     hostName,
+    providerName,
+    toolInfo,
     preview,
     sensitiveDisclosure,
     emit,
@@ -124,7 +133,7 @@ export function requestApproval(params) {
     grantable: sessionGrantable = true
   } = params
   const scope = sessionGrantable && riskLevel !== 'high'
-    ? sessionGrantScope(toolName, input)
+    ? sessionGrantScope(toolName, input, toolInfo)
     : null
   const key = scope?.key || ''
 
@@ -180,6 +189,8 @@ export function requestApproval(params) {
       input,
       preview,
       hostName,
+      providerName,
+      toolInfo,
       mode,
       effect,
       targets: Array.isArray(targets) ? targets : [],

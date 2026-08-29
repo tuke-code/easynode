@@ -392,6 +392,60 @@ console.log('\n========== high 不接受会话授权 ==========')
   clearSession(sessionId)
 }
 
+console.log('\n========== MCP 工具会话授权 ==========')
+
+{
+  const sessionId = 'sess-mcp-grant'
+  const events = []
+  const toolInfo = {
+    source: 'mcp',
+    providerId: 'search-server',
+    providerName: 'AnySearch',
+    remoteName: 'batch_search',
+    displayName: '批量搜索'
+  }
+  const first = requestApproval({
+    sessionId,
+    toolName: 'mcp_anysearch_batch_search',
+    input: { queries: ['first'] },
+    riskLevel: 'normal',
+    toolInfo,
+    emit: (event) => events.push(event)
+  })
+  const firstRequest = events.find((item) => item.type === 'approval_request')
+  expect('MCP 工具提供会话授权选项', firstRequest.grantable, true)
+  expect('MCP 授权按 Server 和原始工具名生成', firstRequest.grantKey, 'mcp:search-server:batch_search')
+  resolveApproval(firstRequest.requestId, { approved: true, scope: 'session' })
+  expect('MCP 首次会话授权生效', (await first).scope, 'session')
+
+  events.length = 0
+  const cached = await requestApproval({
+    sessionId,
+    toolName: 'mcp_anysearch_batch_search',
+    input: { queries: ['different arguments'] },
+    riskLevel: 'normal',
+    toolInfo,
+    emit: (event) => events.push(event)
+  })
+  expect('同一 MCP 工具更换参数仍命中会话授权', cached.cached, true)
+  expect('MCP 会话授权命中后不再弹窗', events.length, 0)
+
+  const otherTool = requestApproval({
+    sessionId,
+    toolName: 'mcp_anysearch_get_page',
+    input: {},
+    riskLevel: 'normal',
+    toolInfo: { ...toolInfo, remoteName: 'get_page', displayName: '读取页面' },
+    emit: (event) => events.push(event)
+  })
+  const otherRequest = events.find((item) => item.type === 'approval_request')
+  assert('同一 Server 的其他 MCP 工具仍需确认', Boolean(otherRequest))
+  resolveApproval(otherRequest.requestId, { approved: false })
+  expect('其他 MCP 工具可以独立拒绝', (await otherTool).approved, false)
+
+  clearSession(sessionId)
+}
+
 console.log('\n==================================')
 process.chdir(originalCwd)
 fs.rmSync(tmpDir, { recursive: true, force: true })

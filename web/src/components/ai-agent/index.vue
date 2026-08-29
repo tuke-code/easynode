@@ -298,6 +298,7 @@ const bodyRef = ref(null)
 const showSessions = ref(false)
 const isAtBottom = ref(true)
 let autoFollow = true
+let lastScrollTop = 0
 let bodyResizeObserver = null
 const dismissedNotice = ref('')
 const editingMessageId = ref('')
@@ -708,6 +709,7 @@ function scrollToBottom() {
     const wrap = scrollRef.value?.wrapRef
     if (!wrap) return
     wrap.scrollTop = wrap.scrollHeight
+    lastScrollTop = wrap.scrollTop
     isAtBottom.value = true
   })
 }
@@ -716,7 +718,10 @@ function handleScroll({ scrollTop }) {
   const wrap = scrollRef.value?.wrapRef
   if (!wrap) return
   isAtBottom.value = wrap.scrollHeight - scrollTop - wrap.clientHeight < 40
-  autoFollow = isAtBottom.value
+  // 程序化下滚的事件可能晚于下一次内容增高；只有真正向上滚才退出跟随。
+  if (scrollTop < lastScrollTop) autoFollow = false
+  else if (isAtBottom.value) autoFollow = true
+  lastScrollTop = scrollTop
 }
 </script>
 

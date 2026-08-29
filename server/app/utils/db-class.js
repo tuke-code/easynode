@@ -12,6 +12,7 @@ import {
   plusDBPath,
   aiConfigDBPath,
   agentSessionDBPath,
+  agentMcpServerDBPath,
   favoriteSftpDBPath,
   proxyDBPath,
   fileTransferDBPath,
@@ -158,6 +159,17 @@ export class AgentSessionDB {
   }
   getInstance() {
     return AgentSessionDB.instance
+  }
+}
+
+export class AgentMcpServerDB {
+  constructor() {
+    if (!AgentMcpServerDB.instance) {
+      AgentMcpServerDB.instance = new Datastore({ filename: agentMcpServerDBPath, autoload: true })
+    }
+  }
+  getInstance() {
+    return AgentMcpServerDB.instance
   }
 }
 

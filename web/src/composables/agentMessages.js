@@ -124,6 +124,7 @@ export function applyEvent(state, event) {
         type: 'tool',
         toolCallId: event.toolCallId,
         tool: event.tool,
+        toolInfo: event.toolInfo,
         input: scriptName ? { ...event.input, scriptName } : event.input,
         status: ToolStatus.RUNNING
       })
@@ -134,12 +135,14 @@ export function applyEvent(state, event) {
       const part = findToolPart(state.messages, event.toolCallId)
       if (!part) break
       if (event.durationMs !== undefined) part.durationMs = event.durationMs
+      if (event.toolInfo) part.toolInfo = event.toolInfo
       break
     }
 
     case 'terminal_command_progress': {
       const part = findToolPart(state.messages, event.toolCallId)
       if (!part) break
+      if (event.toolInfo) part.toolInfo = event.toolInfo
       if (event.durationMs !== undefined) part.durationMs = event.durationMs
       if (event.output !== undefined) part.progressOutput = event.output
       part.progressAt = event.capturedAt || Date.now()
@@ -149,6 +152,7 @@ export function applyEvent(state, event) {
     case 'tool_result': {
       const part = findToolPart(state.messages, event.toolCallId)
       if (!part) break
+      if (event.toolInfo) part.toolInfo = event.toolInfo
       if (event.error) {
         part.status = ToolStatus.ERROR
         part.error = event.error
@@ -194,9 +198,11 @@ export function applyEvent(state, event) {
         requestId: event.requestId,
         toolCallId: event.toolCallId,
         tool: event.tool,
+        toolInfo: event.toolInfo,
         input: event.input,
         preview: event.preview,
         hostName: event.hostName,
+        providerName: event.providerName,
         effect: event.effect,
         mode: event.mode,
         targets: event.targets,
@@ -415,6 +421,7 @@ export function fromModelMessages(modelMessages = [], toolMeta = {}, turnMeta = 
             type: 'tool',
             toolCallId: part.toolCallId,
             tool: part.toolName,
+            toolInfo: meta.toolInfo,
             input: part.toolName === 'run_script' && meta.scriptName
               ? { ...part.input, scriptName: meta.scriptName }
               : part.input,

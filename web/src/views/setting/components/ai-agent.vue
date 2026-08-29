@@ -1,203 +1,236 @@
 <template>
   <div class="ai_agent_settings">
-    <section class="settings_section">
-      <div class="section_head">
-        <div>
-          <h3>Provider 设置</h3>
-          <p>配置 AI 助手使用的模型服务，保存后 AI 助手和终端助手共用此配置。</p>
-        </div>
+    <header class="settings_header">
+      <div>
+        <h2>AI 助手</h2>
+        <p>分别管理模型服务、外部能力、主机权限和界面入口。各区域独立保存，互不影响。</p>
       </div>
+    </header>
 
-      <el-form
-        ref="providerFormRef"
-        :model="providerForm"
-        :rules="providerRules"
-        label-width="106px"
-        class="provider_form"
-      >
-        <el-form-item label="Provider" prop="providerType">
-          <div class="provider_row">
-            <el-select v-model="providerForm.providerType" style="width: 260px">
-              <el-option
-                v-for="item in PROVIDERS"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-            <el-link
-              href="https://en.221022.xyz/buy-ai-token"
-              target="_blank"
-              rel="noopener noreferrer"
-              type="primary"
-              :underline="false"
-            >
-              没有 API Key？
-            </el-link>
+    <el-tabs v-model="activeSection" class="settings_tabs">
+      <el-tab-pane name="provider">
+        <template #label>
+          <span class="tab_label"><el-icon><Cpu /></el-icon>模型服务</span>
+        </template>
+        <section class="settings_section">
+          <div class="section_head">
+            <div>
+              <h3>Provider 设置</h3>
+              <p>配置 AI 助手使用的模型服务，保存后 AI 助手和终端助手共用此配置。</p>
+            </div>
           </div>
-        </el-form-item>
-        <el-form-item label="Base URL" prop="apiUrl">
-          <div class="api_url_wrap">
-            <el-autocomplete
-              v-model.trim="providerForm.apiUrl"
-              :fetch-suggestions="suggestApiUrl"
-              :placeholder="apiUrlPlaceholder"
-              clearable
-              style="width: 100%"
-            />
-            <p class="field_tip">{{ apiUrlTip }}</p>
+
+          <el-form
+            ref="providerFormRef"
+            :model="providerForm"
+            :rules="providerRules"
+            label-width="106px"
+            class="provider_form"
+          >
+            <el-form-item label="Provider" prop="providerType">
+              <div class="provider_row">
+                <el-select v-model="providerForm.providerType" style="width: 260px">
+                  <el-option
+                    v-for="item in PROVIDERS"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+                <el-link
+                  href="https://en.221022.xyz/buy-ai-token"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  type="primary"
+                  :underline="false"
+                >
+                  没有 API Key？
+                </el-link>
+              </div>
+            </el-form-item>
+            <el-form-item label="Base URL" prop="apiUrl">
+              <div class="api_url_wrap">
+                <el-autocomplete
+                  v-model.trim="providerForm.apiUrl"
+                  :fetch-suggestions="suggestApiUrl"
+                  :placeholder="apiUrlPlaceholder"
+                  clearable
+                  style="width: 100%"
+                />
+                <p class="field_tip">{{ apiUrlTip }}</p>
+              </div>
+            </el-form-item>
+            <el-form-item label="API Key" prop="apiKey">
+              <el-input
+                v-model="providerForm.apiKey"
+                type="password"
+                show-password
+                clearable
+                style="width: min(620px, 100%)"
+              />
+            </el-form-item>
+            <el-form-item label="模型列表" prop="models">
+              <div class="models_input_wrap">
+                <el-select
+                  v-model="providerForm.models"
+                  class="models_input_tag"
+                  multiple
+                  filterable
+                  allow-create
+                  default-first-option
+                  collapse-tags
+                  collapse-tags-tooltip
+                  clearable
+                  placeholder="搜索或输入模型 ID"
+                  no-data-text="点击“获取模型”加载候选项，或直接输入模型 ID"
+                >
+                  <el-option
+                    v-for="model in modelOptions"
+                    :key="model"
+                    :label="model"
+                    :value="model"
+                  />
+                </el-select>
+                <el-button
+                  v-if="providerForm.providerType === 'openai-compatible'"
+                  type="primary"
+                  :loading="fetchingModels"
+                  @click="fetchModels"
+                >
+                  获取模型
+                </el-button>
+              </div>
+              <p v-if="providerForm.providerType !== 'openai-compatible'" class="field_tip">当前 Provider 请手动填写可用模型 ID。</p>
+            </el-form-item>
+            <el-form-item label="上下文窗口">
+              <el-input-number
+                v-model="providerForm.contextLimit"
+                :min="1024"
+                :step="1024"
+                :precision="0"
+                controls-position="right"
+              />
+              <span class="field_tip inline_tip">默认 65,536，按模型实际上下文窗口调整。</span>
+            </el-form-item>
+            <el-form-item label="最大迭代次数">
+              <el-input-number
+                v-model="providerForm.maxSteps"
+                :min="1"
+                :max="50"
+                :step="1"
+                :precision="0"
+                controls-position="right"
+              />
+              <span class="field_tip inline_tip">单次对话最多允许模型调用工具并继续推理的次数；默认 25，最多 50。</span>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="savingProvider" @click="saveProvider">保存 Provider 设置</el-button>
+            </el-form-item>
+          </el-form>
+        </section>
+      </el-tab-pane>
+
+      <el-tab-pane name="mcp" lazy>
+        <template #label>
+          <span class="tab_label"><el-icon><Connection /></el-icon>外部 MCP</span>
+        </template>
+        <AgentMcp />
+      </el-tab-pane>
+
+      <el-tab-pane name="hosts" lazy>
+        <template #label>
+          <span class="tab_label"><el-icon><Lock /></el-icon>主机策略</span>
+        </template>
+        <section class="settings_section host_policy_section">
+          <div class="section_head">
+            <div>
+              <h3>主机 AI 策略</h3>
+              <p>限制每台主机允许的操作范围和最高权限模式，会话不能突破这里的设置。</p>
+            </div>
           </div>
-        </el-form-item>
-        <el-form-item label="API Key" prop="apiKey">
-          <el-input
-            v-model="providerForm.apiKey"
-            type="password"
-            show-password
-            clearable
-            style="width: min(620px, 100%)"
-          />
-        </el-form-item>
-        <el-form-item label="模型列表" prop="models">
-          <div class="models_input_wrap">
-            <el-select
-              v-model="providerForm.models"
-              class="models_input_tag"
-              multiple
-              filterable
-              allow-create
-              default-first-option
-              collapse-tags
-              collapse-tags-tooltip
-              clearable
-              placeholder="搜索或输入模型 ID"
-              no-data-text="点击“获取模型”加载候选项，或直接输入模型 ID"
-            >
-              <el-option
-                v-for="model in modelOptions"
-                :key="model"
-                :label="model"
-                :value="model"
+
+          <el-table :data="hostPolicies" border class="host_policy_table">
+            <el-table-column label="主机" min-width="180">
+              <template #default="{ row }">
+                <div class="host_name">{{ row.name }}</div>
+                <div class="host_addr">{{ row.host }}:{{ row.port }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column label="允许 AI" width="108" align="center">
+              <template #default="{ row }">
+                <el-switch v-model="row.aiPolicy.enabled" />
+              </template>
+            </el-table-column>
+            <el-table-column label="允许操作" min-width="160">
+              <template #default="{ row }">
+                <el-select v-model="row.aiPolicy.maxEffect">
+                  <el-option
+                    v-for="item in EFFECTS"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="最高权限模式" min-width="180">
+              <template #default="{ row }">
+                <el-select v-model="row.aiPolicy.maxMode">
+                  <el-option
+                    v-for="item in MODES"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="170" fixed="right">
+              <template #default="{ row }">
+                <el-button
+                  link
+                  type="primary"
+                  :loading="savingHostId === row.id"
+                  @click="saveHostPolicy(row)"
+                >
+                  保存
+                </el-button>
+                <el-button link @click="resetHostPolicy(row)">恢复默认</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </section>
+      </el-tab-pane>
+
+      <el-tab-pane name="appearance" lazy>
+        <template #label>
+          <span class="tab_label"><el-icon><Monitor /></el-icon>界面显示</span>
+        </template>
+        <section class="settings_section appearance_section">
+          <div class="section_head interface_setting_head">
+            <div>
+              <h3>AI 助手入口</h3>
+              <p>控制登录后各页面是否显示 AI 助手宠物入口，不影响 Web 终端助手。</p>
+            </div>
+            <div class="interface_switch">
+              <el-switch
+                :model-value="petEnabled"
+                :loading="savingPreferences"
+                @change="savePetEnabled"
               />
-            </el-select>
-            <el-button
-              v-if="providerForm.providerType === 'openai-compatible'"
-              type="primary"
-              :loading="fetchingModels"
-              @click="fetchModels"
-            >
-              获取模型
-            </el-button>
+              <span :class="{ 'is_active': petEnabled }">{{ petEnabled ? '已显示' : '已隐藏' }}</span>
+            </div>
           </div>
-          <p v-if="providerForm.providerType !== 'openai-compatible'" class="field_tip">当前 Provider 请手动填写可用模型 ID。</p>
-        </el-form-item>
-        <el-form-item label="上下文窗口">
-          <el-input-number
-            v-model="providerForm.contextLimit"
-            :min="1024"
-            :step="1024"
-            :precision="0"
-            controls-position="right"
-          />
-          <span class="field_tip inline_tip">默认 65,536，按模型实际上下文窗口调整。</span>
-        </el-form-item>
-        <el-form-item label="最大迭代次数">
-          <el-input-number
-            v-model="providerForm.maxSteps"
-            :min="1"
-            :max="50"
-            :step="1"
-            :precision="0"
-            controls-position="right"
-          />
-          <span class="field_tip inline_tip">单次对话最多允许模型调用工具并继续推理的次数；默认 25，最多 50。</span>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="savingProvider" @click="saveProvider">保存 Provider 设置</el-button>
-        </el-form-item>
-      </el-form>
-    </section>
-
-    <section class="settings_section">
-      <div class="section_head interface_setting_head">
-        <div>
-          <h3>界面设置</h3>
-          <p>控制登录后各页面是否显示 AI 助手宠物入口，不影响终端AI助手。</p>
-        </div>
-        <div class="interface_switch">
-          <el-switch
-            :model-value="petEnabled"
-            :loading="savingPreferences"
-            @change="savePetEnabled"
-          />
-          <span :class="{ 'is_active': petEnabled }">显示 AI 助手</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="settings_section host_policy_section">
-      <div class="section_head">
-        <div>
-          <h3>主机 AI 策略</h3>
-          <p>限制每台主机允许的操作范围和最高权限模式，会话不能突破这里的设置。</p>
-        </div>
-      </div>
-
-      <el-table :data="hostPolicies" border class="host_policy_table">
-        <el-table-column label="主机" min-width="180">
-          <template #default="{ row }">
-            <div class="host_name">{{ row.name }}</div>
-            <div class="host_addr">{{ row.host }}:{{ row.port }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column label="允许 AI" width="108" align="center">
-          <template #default="{ row }">
-            <el-switch v-model="row.aiPolicy.enabled" />
-          </template>
-        </el-table-column>
-        <el-table-column label="允许操作" min-width="160">
-          <template #default="{ row }">
-            <el-select v-model="row.aiPolicy.maxEffect">
-              <el-option
-                v-for="item in EFFECTS"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column label="最高权限模式" min-width="180">
-          <template #default="{ row }">
-            <el-select v-model="row.aiPolicy.maxMode">
-              <el-option
-                v-for="item in MODES"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="170" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              link
-              type="primary"
-              :loading="savingHostId === row.id"
-              @click="saveHostPolicy(row)"
-            >
-              保存
-            </el-button>
-            <el-button link @click="resetHostPolicy(row)">恢复默认</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </section>
+        </section>
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
 <script setup>
 import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue'
+import { Connection, Cpu, Lock, Monitor } from '@element-plus/icons-vue'
+import AgentMcp from './agent-mcp.vue'
 
 const { proxy: { $api, $message, $store } } = getCurrentInstance()
 
@@ -226,7 +259,10 @@ const DEFAULT_HOST_POLICY = {
 
 const DEFAULT_CONTEXT_LIMIT = 64 * 1024
 const DEFAULT_MAX_STEPS = 25
+const SETTING_SECTIONS = new Set(['provider', 'mcp', 'hosts', 'appearance'])
+const savedSection = localStorage.getItem('aiAgentSettingsSection')
 
+const activeSection = ref(SETTING_SECTIONS.has(savedSection) ? savedSection : 'provider')
 const providerFormRef = ref(null)
 const fetchingModels = ref(false)
 const savingProvider = ref(false)
@@ -383,25 +419,56 @@ async function resetHostPolicy(row) {
 
 watch(() => $store.aiConfig, syncProviderForm, { immediate: true, deep: true })
 watch(() => $store.hostList, syncHostPolicies, { immediate: true, deep: true })
+watch(activeSection, async (section) => {
+  localStorage.setItem('aiAgentSettingsSection', section)
+  if (section === 'hosts' && !$store.hostList.length) await $store.getHostList()
+})
 
 onMounted(async () => {
-  if (!$store.hostList.length) await $store.getHostList()
   await $store.getAIConfig()
+  if (activeSection.value === 'hosts' && !$store.hostList.length) await $store.getHostList()
 })
 </script>
 
 <style lang="scss" scoped>
 .ai_agent_settings {
-  max-width: 1100px;
+  width: min(1180px, 100%);
+  margin: 0;
+}
+
+.settings_header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 4px;
+
+  h2 { margin: 0 0 7px; font-size: 20px; font-weight: 600; }
+  p { margin: 0; color: var(--el-text-color-secondary); font-size: 13px; line-height: 1.6; }
+}
+
+.settings_tabs {
+  :deep(.el-tabs__header) { margin: 0 0 18px; }
+  :deep(.el-tabs__nav-wrap::after) { height: 1px; }
+  :deep(.el-tabs__item) { height: 48px; padding: 0 22px; }
+}
+
+.tab_label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
 }
 
 .settings_section {
-  margin-bottom: 28px;
-  padding: 20px;
+  margin-bottom: 0;
+  padding: 24px;
   border: 1px solid var(--el-border-color-light);
   border-radius: 8px;
   background: var(--el-bg-color);
 }
+
+:deep(.mcp_settings) { margin-bottom: 0; }
 
 .section_head {
   margin-bottom: 18px;
@@ -459,10 +526,16 @@ onMounted(async () => {
 .host_addr { margin-top: 3px; color: var(--el-text-color-secondary); font-size: 12px; }
 
 @media (max-width: 768px) {
+  .settings_header { margin-bottom: 2px; }
+  .settings_tabs :deep(.el-tabs__item) { height: 44px; padding: 0 14px; }
+  .tab_label { gap: 5px; font-size: 13px; }
   .settings_section { padding: 14px; }
   .host_policy_section { overflow-x: auto; }
   .host_policy_table { min-width: 760px; }
   .models_input_wrap { align-items: flex-start; flex-direction: column; }
   .interface_setting_head { align-items: flex-start; flex-direction: column; }
+  :deep(.provider_form .el-form-item) { display: block; }
+  :deep(.provider_form .el-form-item__label) { width: auto !important; justify-content: flex-start; }
+  :deep(.provider_form .el-form-item__content) { margin-left: 0 !important; }
 }
 </style>

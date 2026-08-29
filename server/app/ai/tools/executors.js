@@ -21,6 +21,7 @@ import { resolveHostAccess } from '../host-access.js'
 import { classifyReadPath, DataRisk, stricterDataRisk } from '../data-policy.js'
 import { Effect } from '../policy.js'
 import decryptAndExecuteAsync from '../../utils/decrypt-file.js'
+import { RuntimeState } from '../../utils/runtime-state.js'
 
 const hostListDB = new HostListDB().getInstance()
 const groupDB = new GroupDB().getInstance()
@@ -31,6 +32,9 @@ const restrictedToolPath = path.join(currentDir, '../plus.js')
 const DEFAULT_READ_BYTES = 64 * 1024
 const PLUS_REQUIRED_CODE = 'PLUS_REQUIRED'
 const PLUS_REQUIRED_MESSAGE = '非读取操作需激活 [Plus] 使用'
+const PLUS_AUTH_INVALID_CODE = 'PLUS_AUTH_INVALID'
+const PLUS_AUTH_INVALID_MESSAGE = 'Plus 授权已失效，请重启 EasyNode 服务后重新激活'
+const runtimeState = new RuntimeState().getInstance()
 
 function fail(error, code) {
   return { ok: false, error, ...(code ? { code } : {}) }
@@ -68,6 +72,19 @@ function emitPlusRequired(ctx, tool, effect, toolCallId) {
   })
 }
 
+function rejectInvalidPlus(ctx, tool, toolCallId) {
+  if (!runtimeState.getPlusKicked()) return null
+  ctx.emit?.({
+    type: 'tool_denied',
+    toolCallId,
+    tool,
+    reason: PLUS_AUTH_INVALID_MESSAGE,
+    category: 'Plus 授权',
+    permanent: false
+  })
+  return fail(PLUS_AUTH_INVALID_MESSAGE, PLUS_AUTH_INVALID_CODE)
+}
+
 async function loadRestrictedToolModule(ctx, tool, effect, toolCallId) {
   const plusModule = await decryptAndExecuteAsync(restrictedToolPath)
   if (plusModule?.assertPlusAccess && plusModule?.executeRestrictedTool) {
@@ -85,6 +102,8 @@ async function loadRestrictedToolModule(ctx, tool, effect, toolCallId) {
 /** 在弹出审批前校验，避免让未激活用户确认一个必然无法执行的操作。 */
 export async function checkRestrictedToolAccess(ctx, tool, effect, toolCallId) {
   if (effect === Effect.READ) return { ok: true }
+  const invalid = rejectInvalidPlus(ctx, tool, toolCallId)
+  if (invalid) return invalid
   const plusModule = await loadRestrictedToolModule(ctx, tool, effect, toolCallId)
   return plusModule
     ? { ok: true }
@@ -94,6 +113,8 @@ export async function checkRestrictedToolAccess(ctx, tool, effect, toolCallId) {
 /** 审批完成后再次加载并校验，防止等待期间 Plus 状态发生变化。 */
 async function executeRestrictedTool(tool, ctx, input, options) {
   const effect = preparedOperation(ctx, options?.toolCallId)?.effect || Effect.WRITE
+  const invalid = rejectInvalidPlus(ctx, tool, options?.toolCallId)
+  if (invalid) return invalid
   const plusModule = await loadRestrictedToolModule(ctx, tool, effect, options?.toolCallId)
   if (!plusModule) return fail(PLUS_REQUIRED_MESSAGE, PLUS_REQUIRED_CODE)
   try {

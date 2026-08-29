@@ -1,112 +1,76 @@
-/**
- * 把 spec 表装配成 AI SDK 的 tools
- *
- * 会话模式不裁剪工具；审批与主机限制在每次调用时按实际操作判定。
- */
+/** 把统一 ToolDefinition 注册表装配成 AI SDK tools。 */
 
-import { tool } from 'ai'
-import { TOOL_SPECS, getToolSpec } from './spec.js'
-import { EXECUTORS } from './executors.js'
+import { dynamicTool, jsonSchema, tool } from 'ai'
 import { redactDeep } from '../redact.js'
+import { BUILTIN_TOOL_DEFINITIONS, toolInfo } from './registry.js'
 
-function hasSelectedHosts(ctx) {
-  return ctx.allowedHostIds instanceof Set && ctx.allowedHostIds.size > 0
+export function buildTools(ctx, definitions) {
+  const selectedHosts = ctx.allowedHostIds instanceof Set && ctx.allowedHostIds.size > 0
+  const available = (definitions || BUILTIN_TOOL_DEFINITIONS).filter((definition) => (
+    definition.scopes.includes(ctx.scope || 'ops')
+    && (!definition.requiresSelectedHosts || selectedHosts)
+  ))
+  return Object.fromEntries(available.map((definition) => {
+    const config = {
+      description: definition.description,
+      inputSchema: definition.source?.type === 'mcp'
+        ? jsonSchema(definition.inputSchema)
+        : definition.inputSchema,
+      execute: async (input, options) => runTool(definition, ctx, input, options)
+    }
+    return [definition.name, definition.source?.type === 'mcp' ? dynamicTool(config) : tool(config)]
+  }))
 }
 
-/**
- * @param {object} ctx
- * @param {object} ctx.policy 生效策略 { mode, maxEffect }
- * @param {string} ctx.sessionId
- * @param {string} [ctx.userId]
- * @param {AbortSignal} [ctx.signal]
- * @param {(event: object) => void} [ctx.onToolEvent] 工具开始/结束时的回调，用于推事件给前端
- */
-export function buildTools(ctx) {
-  if (ctx.scope === 'terminal') {
-    const names = ['terminal_command', 'read_output']
-    return Object.fromEntries(names.map((name) => {
-      const spec = getToolSpec(name)
-      const executor = EXECUTORS[name]
-      if (!spec || !executor) return null
-      return [name, tool({
-        description: spec.description,
-        inputSchema: spec.inputSchema,
-        execute: async (input, options) => runTool(spec, executor, ctx, input, options)
-      })]
-    }).filter(Boolean))
-  }
-
-  // AI 助手未选择主机时是纯聊天模式。不能仅在 executor 里拒绝：
-  // 那样模型仍可通过 host_list 枚举资产，并反复尝试越权工具调用。
-  if (!hasSelectedHosts(ctx)) return {}
-
-  const available = TOOL_SPECS.filter((spec) => spec.name !== 'terminal_command')
-
-  const tools = {}
-
-  for (const spec of available) {
-    const executor = EXECUTORS[spec.name]
-    if (!executor) continue
-
-    tools[spec.name] = tool({
-      description: spec.description,
-      inputSchema: spec.inputSchema,
-      execute: async (input, options) => runTool(spec, executor, ctx, input, options)
-    })
-  }
-
-  return tools
-}
-
-async function runTool(spec, executor, ctx, input, options) {
+async function runTool(definition, ctx, input, options) {
   const startedAt = Date.now()
   const toolCallId = options?.toolCallId
   const allowSensitiveOutput = Boolean(toolCallId && ctx.sensitiveOutputs?.has(toolCallId))
+  const info = toolInfo(definition)
 
   try {
-    const result = await executor(ctx, input, { toolCallId, allowSensitiveOutput })
-
+    const result = await definition.execute(ctx, input, { toolCallId, allowSensitiveOutput })
     if (!result?.ok) {
       const error = result?.error || '工具执行失败'
-      ctx.onToolEvent?.({ toolCallId, tool: spec.name, phase: 'error', error, durationMs: Date.now() - startedAt })
-      // 以数据形式回传错误而不是抛异常：模型看到明确的失败原因才能自行纠正
+      ctx.onToolEvent?.({ toolCallId, tool: definition.name, toolInfo: info, phase: 'error', error,
+        durationMs: Date.now() - startedAt })
       return { error, ...(result?.code ? { code: result.code } : {}) }
     }
 
     const { data, redacted } = allowSensitiveOutput
       ? { data: result.data, redacted: false }
       : redactDeep(result.data)
-    ctx.onToolEvent?.({ toolCallId, tool: spec.name, phase: 'done', durationMs: Date.now() - startedAt })
+    ctx.onToolEvent?.({ toolCallId, tool: definition.name, toolInfo: info, phase: 'done',
+      durationMs: Date.now() - startedAt })
 
-    if (redacted) {
+    if (redacted && data && typeof data === 'object' && !Array.isArray(data)) {
       return { ...data, _notice: '输出中的凭据类内容已脱敏，如需核对请让用户自行在终端查看' }
     }
     return data
   } catch (error) {
     const message = error?.message || String(error)
-    ctx.onToolEvent?.({ toolCallId, tool: spec.name, phase: 'error', error: message, durationMs: Date.now() - startedAt })
+    ctx.onToolEvent?.({ toolCallId, tool: definition.name, toolInfo: info, phase: 'error', error: message,
+      durationMs: Date.now() - startedAt })
     return { error: message }
   } finally {
     if (toolCallId) ctx.sensitiveOutputs?.delete(toolCallId)
   }
 }
 
-/** 供 prompt 组装使用：列出当前档位下可用的工具名与说明 */
 export function describeAvailableTools(ctx) {
-  if (ctx.scope === 'terminal') {
-    return ['terminal_command', 'read_output']
-      .map((name) => getToolSpec(name))
-      .filter(Boolean)
-      .map((spec) => `- \`${ spec.name }\`：${ spec.description }`)
-      .join('\n')
+  const selectedHosts = ctx.allowedHostIds instanceof Set && ctx.allowedHostIds.size > 0
+  const definitions = ctx.toolDefinitions || BUILTIN_TOOL_DEFINITIONS.filter((definition) => (
+    definition.scopes.includes(ctx.scope || 'ops')
+    && (!definition.requiresSelectedHosts || selectedHosts)
+  ))
+  const lines = definitions.map((definition) => {
+    const provider = definition.source?.type === 'mcp' ? `（MCP：${ definition.source.name }）` : ''
+    return `- \`${ definition.name }\`${ provider }：${ definition.description }`
+  })
+  if (!ctx.allowedHostIds?.size && ctx.scope !== 'terminal') {
+    lines.unshift('- 当前未选择目标主机，处于纯聊天模式，不能读取、枚举或操作 EasyNode 主机；不依赖目标主机的 MCP 工具仍可使用。')
   }
-  if (!hasSelectedHosts(ctx)) {
-    return '- 当前未选择目标主机，处于纯聊天模式，不能读取、枚举或操作任何主机。'
-  }
-  return TOOL_SPECS
-    .filter((spec) => spec.name !== 'terminal_command')
-    .map((spec) => `- \`${ spec.name }\`：${ spec.description }`)
-    .join('\n')
+  return lines.join('\n') || '- 当前没有可用工具。'
 }
 
-export { getToolSpec, TOOL_SPECS }
+export { getToolSpec, TOOL_SPECS } from './spec.js'

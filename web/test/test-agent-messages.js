@@ -334,6 +334,24 @@ console.log('\n========== 助手工具说明 ==========')
   expect('动态工具展示变更需 Plus', agentToolAccessLabel(tools[1], false), '只读免费 · 变更 Plus')
   expect('未激活时固定写入工具展示 Plus 要求', agentToolAccessLabel(tools[3], false), '需要 Plus')
   expect('固定写入工具使用 Plus 样式', agentToolAccessClass(tools[3]), 'is_plus')
+
+  const mcpTool = {
+    name: 'mcp_github_search',
+    plusPolicy: 'free',
+    source: { type: 'mcp', name: 'GitHub' },
+    scopes: ['ops', 'terminal'],
+    requiresSelectedHosts: false
+  }
+  expect('未选择主机仍展示全局 MCP 工具', availableAgentTools([mcpTool], {
+    scope: 'ops',
+    hasSelectedHosts: false
+  }).map((tool) => tool.name), ['mcp_github_search',])
+  expect('终端助手也展示全局 MCP 工具', availableAgentTools([mcpTool], {
+    scope: 'terminal',
+    hasSelectedHosts: true
+  }).map((tool) => tool.name), ['mcp_github_search',])
+  expect('MCP 工具统一标记为外部操作', agentToolAccessLabel(mcpTool, false), 'MCP · 外部操作 · 免费')
+  expect('MCP 工具使用外部操作样式', agentToolAccessClass(mcpTool), 'is_mixed')
 }
 
 console.log('\n========== 回答重新生成 ==========')
