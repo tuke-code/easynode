@@ -8,10 +8,13 @@ import PackageJsonModule from '../../package.json' with { type: 'json' }
 const version = PackageJsonModule.version
 import getLicenseInfo from '../utils/get-plus.js'
 import { sendNoticeAsync } from '../utils/notify.js'
-import { RSADecryptAsync, AESEncryptAsync, SHA1Encrypt, SHA256Encrypt } from '../utils/encrypt.js'
-import { getNetIPInfo, requestWithFailover, timingSafeEqual } from '../utils/tools.js'
+import { InvalidCiphertextError, RSADecryptAsync, AESEncryptAsync, SHA1Encrypt, SHA256Encrypt } from '../utils/encrypt.js'
+import { getClientIP, getNetIPInfo, randomStr, requestWithFailover, timingSafeEqual } from '../utils/tools.js'
 import { KeyDB, PlusDB, SessionDB } from '../utils/db-class.js'
 import { RuntimeState } from '../utils/runtime-state.js'
+import { DEFAULT_LOCK_DURATION_MS, DEFAULT_MAX_ATTEMPTS, loginAttemptLimiter } from '../utils/login-attempt-limiter.js'
+import { cookieSecure } from '../config/index.js'
+import { disconnectAllSessionConnections, revokeAllSessions } from '../utils/auth-session.js'
 
 const keyDB = new KeyDB().getInstance()
 const sessionDB = new SessionDB().getInstance()
@@ -44,82 +47,148 @@ const parseLoginAgentInfo = (userAgent = '') => {
   return uap(userAgent)
 }
 
-let timer = null
-const allowErrCount = 5 // 允许错误的次数
-const forbidTimer = 60 * 5 // 禁止登录时间
-let loginErrCount = 0 // 每一轮的登录错误次数
-let loginErrTotal = 0 // 总的登录错误次数
-let loginCountDown = forbidTimer
-let forbidLogin = false
+const respondLoginLocked = (ctx, lockStatus) => {
+  const { res } = ctx
+  const retryAfterSeconds = lockStatus.retryAfterSeconds
+  ctx.set('Retry-After', String(retryAfterSeconds))
+  return res.fail({
+    status: 429,
+    data: { retryAfterSeconds },
+    msg: `登录失败次数过多，请在 ${ retryAfterSeconds } 秒后重试`
+  })
+}
+
+const notifyLoginLocked = async (clientIp) => {
+  const { country = '未知', city = '未知' } = await getNetIPInfo(clientIp)
+  await sendNoticeAsync(
+    'err_login',
+    '登录错误提醒',
+    `错误登录次数: ${ DEFAULT_MAX_ATTEMPTS }\n地点：${ country }${ city }\nIP: ${ clientIp }\n锁定时间: ${ DEFAULT_LOCK_DURATION_MS / 60_000 }分钟`
+  )
+}
+
+const failLoginAttempt = (ctx, clientIp, msg) => {
+  const lockStatus = loginAttemptLimiter.recordFailure(clientIp)
+  if (lockStatus.locked) {
+    if (lockStatus.justLocked) {
+      notifyLoginLocked(clientIp).catch(error => logger.error('发送登录锁定通知失败:', error.message))
+    }
+    return respondLoginLocked(ctx, lockStatus)
+  }
+  return ctx.res.fail({
+    status: 400,
+    msg: `${ msg } ${ lockStatus.failedAttempts }/${ DEFAULT_MAX_ATTEMPTS }`
+  })
+}
 
 const login = async (ctx) => {
   const { res, request } = ctx
-  let { body: { loginName, ciphertext, jwtExpires, mfa2Token }, ip: clientIp, header } = request
-  if (!loginName || !ciphertext || !jwtExpires || !header) return res.fail({ msg: '请求非法!' })
-  const jwtExpiresDuration = ALLOWED_JWT_EXPIRES[jwtExpires]
-  if (typeof jwtExpiresDuration !== 'number') return res.fail({ msg: '请求非法!' })
-  const jwtExpireAt = Date.now() + jwtExpiresDuration
-  if (forbidLogin) return res.fail({ msg: `禁止登录! 倒计时[${ loginCountDown }s]后尝试登录或重启面板服务` })
-  loginErrCount++
-  loginErrTotal++
-  if (loginErrCount >= allowErrCount) {
-    const { ip, country, city } = await getNetIPInfo(clientIp)
-    // 异步发送通知&禁止登录
-    sendNoticeAsync('err_login', '登录错误提醒', `错误登录次数: ${ loginErrTotal }\n地点：${ country + city }\nIP: ${ ip }`)
-    forbidLogin = true
-    loginErrCount = 0
+  const clientIp = getClientIP(ctx.socket?.remoteAddress, ctx.get('x-forwarded-for')) || 'unknown'
+  const lockStatus = loginAttemptLimiter.getStatus(clientIp)
+  if (lockStatus.locked) return respondLoginLocked(ctx, lockStatus)
 
-    // forbidTimer秒后解禁
-    setTimeout(() => {
-      forbidLogin = false
-    }, loginCountDown * 1000)
-
-    // 计算登录倒计时
-    timer = setInterval(() => {
-      if (loginCountDown <= 0) {
-        clearInterval(timer)
-        timer = null
-        loginCountDown = forbidTimer
-        return
-      }
-      loginCountDown--
-    }, 1000)
+  const body = request.body
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return failLoginAttempt(ctx, clientIp, '请求非法!')
   }
 
-  // 登录流程
-  try {
-    let loginPwd = await RSADecryptAsync(ciphertext)
-    let { user, pwd, enableMFA2, secret } = await keyDB.findOneAsync({})
-    if (enableMFA2) {
-      const isValid = speakeasy.totp.verify({ secret, encoding: 'base32', token: String(mfa2Token), window: 1 })
-      console.log('MFA2 verfify:', isValid)
-      if (!isValid) return res.fail({ msg: '验证失败' })
-    }
+  const { loginName, ciphertext, jwtExpires, mfa2Token } = body
+  const { header } = request
+  if (
+    typeof loginName !== 'string' || !loginName ||
+    typeof ciphertext !== 'string' || !ciphertext ||
+    typeof jwtExpires !== 'string' || !jwtExpires
+  ) {
+    return failLoginAttempt(ctx, clientIp, '请求非法!')
+  }
 
+  const jwtExpiresDuration = ALLOWED_JWT_EXPIRES[jwtExpires]
+  if (typeof jwtExpiresDuration !== 'number') return failLoginAttempt(ctx, clientIp, '请求非法!')
+  const jwtExpireAt = Date.now() + jwtExpiresDuration
+
+  let loginPwd
+  try {
+    loginPwd = await RSADecryptAsync(ciphertext)
+  } catch (error) {
+    if (error instanceof InvalidCiphertextError) return failLoginAttempt(ctx, clientIp, '请求非法!')
+    logger.error('登录密码解密失败:', error)
+    return res.fail({ status: 500, msg: '登录失败, 请查看服务端日志' })
+  }
+
+  let keyRecord
+  try {
+    keyRecord = await keyDB.findOneAsync({})
+  } catch (error) {
+    logger.error('读取登录配置失败:', error)
+    return res.fail({ status: 500, msg: '登录失败, 请查看服务端日志' })
+  }
+
+  const { user, pwd, enableMFA2, secret, jwtToken, _id: userId } = keyRecord || {}
+  if (
+    typeof user !== 'string' || typeof pwd !== 'string' ||
+    typeof jwtToken !== 'string' || !jwtToken || !userId
+  ) {
+    logger.error('登录配置缺少用户名、密码或签名密钥')
+    return res.fail({ status: 500, msg: '登录失败, 请查看服务端日志' })
+  }
+
+  if (enableMFA2) {
+    if (typeof secret !== 'string' || !secret) {
+      logger.error('MFA2 已启用但缺少密钥')
+      return res.fail({ status: 500, msg: '登录失败, 请查看服务端日志' })
+    }
+    let isValid
+    try {
+      isValid = speakeasy.totp.verify({ secret, encoding: 'base32', token: String(mfa2Token), window: 1 })
+    } catch (error) {
+      logger.error('MFA2 验证配置异常:', error)
+      return res.fail({ status: 500, msg: '登录失败, 请查看服务端日志' })
+    }
+    if (!isValid) return failLoginAttempt(ctx, clientIp, 'MFA2验证失败')
+  }
+
+  try {
     // 统一使用SHA1加密验证
     loginPwd = SHA1Encrypt(loginPwd)
-    if (!timingSafeEqual(loginName, user) || !timingSafeEqual(loginPwd, pwd)) return res.fail({ msg: `用户名或密码错误 ${ loginErrTotal }/${ allowErrCount }` })
-    if (loginName !== user || loginPwd !== pwd) return res.fail({ msg: `用户名或密码错误 ${ loginErrTotal }/${ allowErrCount }` })
+    const loginNameMatches = timingSafeEqual(loginName, user)
+    const passwordMatches = timingSafeEqual(loginPwd, pwd)
+    if (!loginNameMatches || !passwordMatches) {
+      return failLoginAttempt(ctx, clientIp, '用户名或密码错误')
+    }
+  } catch {
+    return failLoginAttempt(ctx, clientIp, '请求非法!')
+  }
+  if (loginName !== user || loginPwd !== pwd) {
+    failLoginAttempt(ctx, clientIp, '用户名或密码错误')
+    return
+  }
 
-    const { token, session, deviceId } = await beforeLoginHandler(clientIp, jwtExpires, jwtExpireAt, parseLoginAgentInfo(header?.['user-agent'] || ''))
+  try {
+    const { token, session, deviceId } = await beforeLoginHandler(
+      clientIp,
+      jwtExpires,
+      jwtExpireAt,
+      parseLoginAgentInfo(header?.['user-agent'] || ''),
+      { jwtToken, userId }
+    )
+    loginAttemptLimiter.reset(clientIp)
     ctx.cookies.set('session', session, {
       httpOnly: true,
       expires: new Date(jwtExpireAt),
-      sameSite: 'strict'
+      sameSite: 'strict',
+      secure: cookieSecure
     })
     return res.success({ data: { token, deviceId }, msg: '登录成功' })
   } catch (error) {
-    console.log('登录失败：', error.message)
-    res.fail({ msg: '登录失败, 请查看服务端日志' })
+    logger.error('登录失败:', error)
+    return res.fail({ status: 500, msg: '登录失败, 请查看服务端日志' })
   }
 }
 
-const beforeLoginHandler = async (clientIp, jwtExpires, jwtExpireAt, agentInfo) => {
-  loginErrCount = loginErrTotal = 0 // 登录成功, 清空错误次数
+const beforeLoginHandler = async (clientIp, jwtExpires, jwtExpireAt, agentInfo, authSnapshot) => {
   const session = uuidv4()
   const deviceId = uuidv4()
-  let { jwtToken, _id: userId } = await keyDB.findOneAsync({})
-  if (!jwtToken || !userId) throw new Error('加密串获取失败，请重启服务!')
+  const { jwtToken, userId } = authSnapshot
   let token = jwt.sign({ create: Date.now(), userId, session }, `${ jwtToken }-${ userId }`, { expiresIn: jwtExpires })
   const tokenHash = SHA256Encrypt(token)
   token = await AESEncryptAsync(token) // 对称加密token后再传输给前端
@@ -135,7 +204,8 @@ const beforeLoginHandler = async (clientIp, jwtExpires, jwtExpireAt, agentInfo) 
   return { token, session, deviceId }
 }
 
-const updatePwd = async ({ res, request }) => {
+const updatePwd = async (ctx) => {
+  const { res, request } = ctx
   let { body: { oldLoginName, oldPwd, newLoginName, newPwd } } = request
   let rsaOldPwd = await RSADecryptAsync(oldPwd)
   oldPwd = SHA1Encrypt(rsaOldPwd)
@@ -146,9 +216,22 @@ const updatePwd = async ({ res, request }) => {
   newPwd = SHA1Encrypt(await RSADecryptAsync(newPwd))
   keyObj.user = newLoginName
   keyObj.pwd = newPwd
+  keyObj.jwtToken = randomStr(32)
   await keyDB.updateAsync({ _id: keyObj._id }, { $set: keyObj })
+  try {
+    await revokeAllSessions(sessionDB)
+  } finally {
+    // 已建立的长连接不会再次经过鉴权，必须主动断开。
+    disconnectAllSessionConnections()
+  }
+  ctx.cookies.set('session', '', {
+    httpOnly: true,
+    expires: new Date(0),
+    sameSite: 'strict',
+    secure: cookieSecure
+  })
   sendNoticeAsync('updatePwd', '用户密码修改提醒', `原用户名：${ user }\n更新用户名: ${ newLoginName }`)
-  res.success({ data: true, msg: 'success' })
+  res.success({ data: true, msg: '修改成功，请重新登录' })
 }
 
 const getEasynodeVersion = async ({ res }) => {

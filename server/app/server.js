@@ -17,6 +17,7 @@ import { throwError, isAllowedIp, getClientIP } from './utils/tools.js'
 import { SessionDB } from './utils/db-class.js'
 import { parseCookies } from './utils/verify-auth.js'
 import { generateSelfSignedCert } from './utils/ssl-cert.js'
+import { registerRdpSocket } from './utils/auth-session.js'
 import createRdpProxyMiddleware from './middlewares/rdp-proxy.js'
 
 const sessionDB = new SessionDB().getInstance()
@@ -117,6 +118,7 @@ const createServer = () => {
         // 验证通过，转发请求到 guacamole-lite
         // guacamole-lite 会验证 URL 中的加密 token
         console.log('RDP 代理转发请求初步验证成功，开始转发...')
+        registerRdpSocket(socket)
         rdpProxy.upgrade(request, socket, head)
       } catch (error) {
         logger.error('RDP 代理异常:', error.message)

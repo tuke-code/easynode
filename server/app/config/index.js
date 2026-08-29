@@ -6,6 +6,7 @@ const config = {
   enableHttps: process.env.ENABLE_HTTPS ? parseInt(process.env.ENABLE_HTTPS) : 1, // 0:关闭 1:自签证书 2:传入证书路径
   sslCertPath: process.env.SSL_CERT_PATH,
   sslKeyPath: process.env.SSL_KEY_PATH,
+  cookieSecure: process.env.COOKIE_SECURE === 'true',
   uploadDir: path.join(process.cwd(),'app/db'),
   staticDir: path.join(process.cwd(),'app/static'),
   sftpCacheDir: path.join(process.cwd(),'app/socket/sftp-cache'),
@@ -41,6 +42,7 @@ export const {
   enableHttps,
   sslCertPath,
   sslKeyPath,
+  cookieSecure,
   uploadDir,
   staticDir,
   sftpCacheDir,

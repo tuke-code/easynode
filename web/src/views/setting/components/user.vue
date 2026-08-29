@@ -114,7 +114,7 @@ const handleUpdate = () => {
   formRef.value.validate()
     .then(async () => {
       $messageBox.confirm(
-        '修改用户名后会清除所有登录态，需重新登录',
+        '修改用户名或密码后会清除所有登录态，需重新登录',
         '修改提示',
         {
           confirmButtonText: '确定',
@@ -135,11 +135,8 @@ const handleUpdate = () => {
         formData.newLoginName = ''
         formData.newPwd = ''
         formRef.value.resetFields()
-        if (oldLoginName !== newLoginName) {
-          $message({ type: 'success', center: true, message: '用户名修改成功, 请重新登录' })
-          $store.removeLoginInfo()
-          $router.push('/login')
-        }
+        await $store.removeLoginInfo()
+        await $router.push('/login')
       })
     })
 }

@@ -4,15 +4,25 @@ import NodeRSA from 'node-rsa'
 import { KeyDB } from './db-class.js'
 const keyDB = new KeyDB().getInstance()
 
+class InvalidCiphertextError extends Error {
+  constructor() {
+    super('invalid ciphertext')
+    this.name = 'InvalidCiphertextError'
+  }
+}
+
 // rsa非对称 私钥解密
 const RSADecryptAsync = async (ciphertext) => {
-  if (!ciphertext) return Promise.reject(new Error('ciphertext is empty'))
+  if (typeof ciphertext !== 'string' || !ciphertext) throw new InvalidCiphertextError()
   let { privateKey } = await keyDB.findOneAsync({})
   privateKey = await AESDecryptAsync(privateKey) // 先解密私钥
   const rsakey = new NodeRSA(privateKey)
   rsakey.setOptions({ encryptionScheme: 'pkcs1', environment: 'browser' }) // Must Set It When Frontend Use jsencrypt
-  const plaintext = rsakey.decrypt(ciphertext, 'utf8')
-  return plaintext
+  try {
+    return rsakey.decrypt(ciphertext, 'utf8')
+  } catch {
+    throw new InvalidCiphertextError()
+  }
 }
 
 // aes对称 加密(default commonKey)
@@ -42,6 +52,7 @@ const SHA256Encrypt = (clearText) => {
 }
 
 export {
+  InvalidCiphertextError,
   RSADecryptAsync,
   AESEncryptAsync,
   AESDecryptAsync,

@@ -16,6 +16,7 @@
 ```env
 # .env 文件
 ENABLE_HTTPS=1  # 0:关闭 1:自签证书 2:传入证书路径
+COOKIE_SECURE=false  # true: Session Cookie 仅通过 HTTPS 发送
 HTTPS_PORT=8092
 ```
 

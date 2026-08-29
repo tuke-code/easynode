@@ -76,7 +76,8 @@ Native端复用现有EasyNode后端，在移动设备上提供服务器管理、
 - 请牢记账号密码，出于安全原因，不提供一键重置密码的脚本
 - 访问：
   - https安全访问：https://ip:8083  【注意：默认启用https自签证书加密访问，首次打开需在浏览器中手动跳过 https 证书错误提示：浏览器页面中点 高级 --> 继续前往】
-  - http 内网访问：http://ip:8082  【仓库提供的docker-compose默认仅开放 12.0.0.1 内网访问，切记开放公网访问**请勿使用http**】
+  - http 内网访问：http://ip:8082  【切记：开放公网访问**请勿使用http**，仓库提供的 docker-compose.yml 文件默认仅127.0.0.1内网访问】
+ps：仓库提供的 docker-compose.yml 文件默认启用变量`COOKIE_SECURE=true`, 此时http协议无法正常使用，如需非加密访问，请注释`COOKIE_SECURE=true`
 
 ### docker-compose部署
 
@@ -106,6 +107,7 @@ docker compose up -d
 | `DEBUG` | 启动日志 | `true` | `false`：关闭，`true`：开启 |
 | `RDP_PORT` | RDP服务端口 | - | 无特殊需求保持默认即可 |
 | `ENABLE_HTTPS` | 是否启用HTTPS | `1` | `0`：关闭<br/>`1`：自签证书（适合内网）<br/>`2`：合法证书（适合外网）<br/>外网建议使用 nginx/caddy 进行 HTTPS 转发 |
+| `COOKIE_SECURE` | Session Cookie 是否仅通过 HTTPS 发送 | `false` | `true`：启用 Secure 标志，仅可通过 HTTPS 登录；仓库提供的 docker-compose 默认为 `true` |
 | `HTTPS_PORT` | HTTPS端口 | `8092` | 默认启用，请使用 https 访问web端 |
 | `SSL_CERT_PATH` | HTTPS证书文件路径 | - | 当 `ENABLE_HTTPS=2` 时必须配置 |
 | `SSL_KEY_PATH` | HTTPS私钥文件路径 | - | 当 `ENABLE_HTTPS=2` 时必须配置 |

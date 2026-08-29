@@ -17,6 +17,7 @@ services:
       - HTTP_PORT=8082
       - RDP_PORT=8083
       - ENABLE_HTTPS=1 # 默认自签证书
+      - COOKIE_SECURE=true # Session Cookie仅通过HTTPS发送
       - HTTPS_PORT=8092 # https 端口 8092
       - SSL_CERT_PATH=
       - SSL_KEY_PATH=
