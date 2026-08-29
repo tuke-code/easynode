@@ -1,14 +1,5 @@
 <template>
-  <el-drawer
-    v-model="visible"
-    title="菜单选项"
-    :direction="isMobileScreen ? 'ttb' : 'ltr'"
-    :close-on-click-modal="true"
-    :close-on-press-escape="true"
-    :modal="true"
-    modal-class="menu_options_drawer"
-    :size="isMobileScreen ? '80%' : '30%'"
-  >
+  <div class="menu_options_content">
     <el-form
       ref="formRef"
       label-suffix="："
@@ -49,34 +40,13 @@
         </span>
       </el-form-item>
     </el-form>
-    <template #footer>
-      <span class="dialog_footer">
-        <el-button @click="visible = false">关闭</el-button>
-      </span>
-    </template>
-  </el-drawer>
+  </div>
 </template>
 
 <script setup>
 import { computed, getCurrentInstance } from 'vue'
-import useMobileWidth from '@/composables/useMobileWidth'
 
 const { proxy: { $store } } = getCurrentInstance()
-const { isMobileScreen } = useMobileWidth()
-
-const props = defineProps({
-  show: {
-    required: true,
-    type: Boolean
-  }
-})
-
-const emit = defineEmits(['update:show'])
-
-const visible = computed({
-  get: () => props.show,
-  set: (newVal) => emit('update:show', newVal)
-})
 
 const scriptLibrary = computed({
   get: () => $store.menuSetting.scriptLibrary,
@@ -95,19 +65,7 @@ const hostGroupCascader = computed({
 </script>
 
 <style lang="scss" scoped>
-.dialog_footer {
-  display: flex;
-  justify-content: center;
-}
 .script_library_switch {
   margin-left: 20px;
-}
-</style>
-
-<style lang="scss">
-.menu_options_drawer {
-  .el-drawer__header {
-    margin-bottom: 0 !important;
-  }
 }
 </style>

@@ -104,41 +104,17 @@
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <el-dropdown
-          trigger="click"
-          :teleported="isMobileScreen"
+        <button class="top_menu_action" type="button" @click="showSettings = true">
+          设置
+        </button>
+        <button
+          v-if="!isMobileScreen"
+          class="top_menu_action"
+          type="button"
+          @click="handleFullScreen"
         >
-          <span class="link_text">终端设置<el-icon class="link_icon"><arrow-down /></el-icon></span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item @click="showSetting = true">
-                <span>基础设置</span>
-              </el-dropdown-item>
-              <el-dropdown-item @click="showHighlightSettings = true">
-                <span>高亮设置</span>
-              </el-dropdown-item>
-              <el-dropdown-item @click="showOtherSettings = true">
-                <span>其他设置</span>
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-        <el-dropdown
-          trigger="click"
-          :teleported="isMobileScreen"
-        >
-          <span class="link_text">功能项<el-icon class="link_icon"><arrow-down /></el-icon></span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item @click="handleFullScreen">
-                <span>全屏</span>
-              </el-dropdown-item>
-              <el-dropdown-item @click="showMenuOptions = true">
-                <span>菜单选项</span>
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+          {{ isFullscreen ? '退出全屏' : '全屏' }}
+        </button>
       </div>
       <div class="right_overview">
         <div class="switch_wrap">
@@ -481,10 +457,7 @@
       @closed="updateHostData = null"
     />
 
-    <TerminalSetting v-model:show="showSetting" />
-    <TerminalHighlightSettings v-model:show="showHighlightSettings" />
-    <OtherSettings v-model:show="showOtherSettings" />
-    <MenuOptions v-model:show="showMenuOptions" />
+    <TerminalSettingsDialog v-model:show="showSettings" />
     <TerminalSessionSetting v-model:show="showSessionSetting" />
   </div>
 </template>
@@ -508,10 +481,7 @@ import { useTerminalTabContextMenu } from '@/composables/useTerminalTabContextMe
 import Terminal from './terminal.vue'
 import ServerStatus from './server-status.vue'
 import HostForm from '../../server/components/host-form.vue'
-import TerminalSetting from './terminal-setting.vue'
-import TerminalHighlightSettings from './terminal-highlight-settings.vue'
-import OtherSettings from './other-settings.vue'
-import MenuOptions from './menu-options.vue'
+import TerminalSettingsDialog from './terminal-settings-dialog.vue'
 import FooterBar from './footer-bar.vue'
 import SftpV2 from './sftp-v2.vue'
 import TerminalSingleWindow from './terminal-single-window.vue'
@@ -549,10 +519,8 @@ watch(layoutMode, (newMode) => {
 })
 const hostFormVisible = ref(false)
 const updateHostData = ref(null)
-const showSetting = ref(false)
-const showHighlightSettings = ref(false)
-const showOtherSettings = ref(false)
-const showMenuOptions = ref(false)
+const showSettings = ref(false)
+const isFullscreen = ref(false)
 const showSessionSetting = ref(false)
 const showInfoSide = ref(isMobileScreen.value ? false : localStorage.getItem('showInfoSide') !== 'false')
 const showTerminalAi = ref(isMobileScreen.value ? false : localStorage.getItem('showTerminalAi') === 'true')
@@ -1118,10 +1086,11 @@ const removeTab = (index) => {
 
 const handleFullScreen = () => {
   if (isMobileScreen.value) return
-  if (document.fullscreenElement) document?.exitFullscreen()
-  document
-    .getElementsByClassName('terminal_wrap')[0]
-    .requestFullscreen()
+  if (document.fullscreenElement) {
+    document.exitFullscreen()
+    return
+  }
+  document.querySelector('.terminal_wrap')?.requestFullscreen()
 }
 
 const handleHorizontalScreen = () => {
@@ -1308,6 +1277,7 @@ const handleSuspendTerminalSingleDone = (terminalKey) => {
 }
 
 const fullScreenCb = async() => {
+  isFullscreen.value = !!document.fullscreenElement
   await $nextTick()
   setTimeout(() => {
     resizeTerminal()
@@ -1412,6 +1382,29 @@ onUnmounted(() => {
       }
       .hidden_icon {
         opacity: 0;
+      }
+    }
+
+    .top_menu_action {
+      margin: 0 10px 0 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--el-text-color-regular);
+      font: inherit;
+      font-size: var(--el-font-size-base);
+      line-height: 30px;
+      white-space: nowrap;
+      cursor: pointer;
+
+      &:hover {
+        color: var(--el-color-primary);
+      }
+
+      &:focus-visible {
+        border-radius: 3px;
+        outline: 2px solid var(--el-color-primary-light-5);
+        outline-offset: 2px;
       }
     }
 

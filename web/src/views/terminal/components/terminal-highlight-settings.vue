@@ -1,14 +1,5 @@
 <template>
-  <el-drawer
-    v-model="dialogVisible"
-    title="高亮设置"
-    :direction="isMobileScreen ? 'ttb' : 'ltr'"
-    :close-on-click-modal="true"
-    :close-on-press-escape="true"
-    :modal="true"
-    modal-class="local_setting_drawer"
-    :size="isMobileScreen ? '80%' : '35%'"
-  >
+  <div class="terminal_highlight_settings_content">
     <el-form
       ref="formRef"
       label-suffix="："
@@ -169,12 +160,6 @@
       />
     </el-form>
 
-    <template #footer>
-      <span class="dialog_footer">
-        <el-button @click="handleCancel">关闭</el-button>
-      </span>
-    </template>
-
     <!-- 规则编辑对话框 -->
     <RuleEditDialog
       v-model:show="showRuleEdit"
@@ -201,32 +186,16 @@
         <el-button type="primary" @click="confirmImportRules">确认导入</el-button>
       </template>
     </el-dialog>
-  </el-drawer>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, getCurrentInstance } from 'vue'
+import { ref, computed, getCurrentInstance, onMounted } from 'vue'
 import { HIGHLIGHT_RULES } from '@/utils/highlighter'
-import useMobileWidth from '@/composables/useMobileWidth'
 import RuleEditDialog from './rule-edit-dialog.vue'
 import themeList from 'xterm-theme'
 
 const { proxy: { $store, $message, $messageBox } } = getCurrentInstance()
-const { isMobileScreen } = useMobileWidth()
-
-const props = defineProps({
-  show: {
-    type: Boolean,
-    default: false
-  }
-})
-
-const emit = defineEmits(['update:show',])
-
-const dialogVisible = computed({
-  get: () => props.show,
-  set: (val) => emit('update:show', val)
-})
 
 // 高亮配置
 const highlightConfig = ref({
@@ -637,17 +606,7 @@ const handleConfigChange = async () => {
   }
 }
 
-// 关闭对话框
-const handleCancel = () => {
-  dialogVisible.value = false
-}
-
-// 监听对话框显示
-watch(() => props.show, (show) => {
-  if (show) {
-    loadConfig()
-  }
-})
+onMounted(loadConfig)
 </script>
 
 <style lang="scss" scoped>

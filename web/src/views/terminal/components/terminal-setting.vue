@@ -1,14 +1,5 @@
 <template>
-  <el-drawer
-    v-model="visible"
-    title="基础设置"
-    :direction="isMobileScreen ? 'ttb' : 'ltr'"
-    :close-on-click-modal="true"
-    :close-on-press-escape="true"
-    :modal="true"
-    modal-class="terminal_setting_drawer"
-    :size="isMobileScreen ? '80%' : '30%'"
-  >
+  <div class="terminal_setting_content">
     <el-form
       ref="formRef"
       label-suffix="："
@@ -134,30 +125,14 @@
         </div>
       </el-form-item>
     </el-form>
-    <template #footer>
-      <span class="dialog_footer">
-        <el-button @click="visible = false">关闭</el-button>
-      </span>
-    </template>
-  </el-drawer>
+  </div>
 </template>
 
 <script setup>
 import { computed, getCurrentInstance, ref } from 'vue'
 import themeList from 'xterm-theme'
-import useMobileWidth from '@/composables/useMobileWidth'
 
 const { proxy: { $store } } = getCurrentInstance()
-const { isMobileScreen } = useMobileWidth()
-
-const props = defineProps({
-  show: {
-    required: true,
-    type: Boolean
-  }
-})
-
-const emit = defineEmits(['update:show',])
 
 // 全平台通用字体列表
 const commonFonts = [
@@ -188,11 +163,6 @@ const lastCustomColor = ref('#ffffff')
 const lastCustomCursorColor = ref('#00ff41')
 
 const defaultBackgroundImages = computed(() => $store.defaultBackgroundImages)
-
-const visible = computed({
-  get: () => props.show,
-  set: (newVal) => emit('update:show', newVal)
-})
 
 const theme = computed({
   get: () => $store.terminalConfig.themeName,
@@ -406,17 +376,5 @@ const changeBackground = (item) => {
 }
 .custom_background {
   width: 90%;
-}
-.dialog_footer {
-  display: flex;
-  justify-content: center;
-}
-</style>
-
-<style lang="scss">
-.terminal_setting_drawer {
-  .el-drawer__header {
-    margin-bottom: 0 !important;
-  }
 }
 </style>
