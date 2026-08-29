@@ -1,0 +1,59 @@
+import 'package:easynode_native/core/ui/app_color_theme.dart';
+import 'package:easynode_native/features/ai_agent/agent_models.dart';
+import 'package:easynode_native/features/ai_agent/agent_panel.dart';
+import 'package:easynode_native/features/ai_agent/agent_ui_tokens.dart';
+import 'package:easynode_native/l10n/app_localizations.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  testWidgets(
+    'approval details are height limited while actions stay visible',
+    (tester) async {
+      final approval = AgentApproval(
+        requestId: 'approval-1',
+        toolCallId: 'tool-1',
+        tool: 'write_file',
+        input: const {'path': '/tmp/example'},
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        preview: {
+          'diff': List.generate(100, (index) => 'Diff line $index').join('\n'),
+        },
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: ThemeData(
+              useMaterial3: true,
+              extensions: const [AppColorTheme.defaultLight],
+            ),
+            home: Scaffold(body: AgentApprovalCard(approval: approval)),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final scroll = find.byKey(const Key('agent-approval-details-scroll'));
+      expect(
+        tester.getSize(scroll).height,
+        AgentUiTokens.messagePartContentMaxHeight,
+      );
+      expect(tester.widget<SingleChildScrollView>(scroll).primary, isFalse);
+      expect(find.widgetWithText(FilledButton, 'Allow'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Deny'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+}

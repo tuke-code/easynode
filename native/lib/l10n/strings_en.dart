@@ -680,6 +680,7 @@ const Map<String, String> stringsEn = {
   'agent.mode.authorizedDescription':
       'Run ordinary operations automatically within the host policy.',
   'agent.thinking': 'Thinking…',
+  'agent.scrollToBottom': 'Scroll to bottom',
   'agent.analyzingTools': 'Analyzing tool results…',
   'agent.reasoning': 'Reasoning',
   'agent.regenerate': 'Regenerate',

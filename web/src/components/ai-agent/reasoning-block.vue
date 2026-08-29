@@ -58,8 +58,9 @@ const headText = computed(() => (props.part.done ? '思考过程' : '思考中�
   .reasoning_content {
     margin-top: 6px;
     padding: 8px 10px;
-    max-height: 260px;
-    overflow: auto;
+    max-height: min(45vh, 260px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border-left: 2px solid #dcdfe6;
     color: #909399;
     line-height: 1.7;

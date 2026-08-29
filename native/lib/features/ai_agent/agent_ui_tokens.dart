@@ -12,7 +12,9 @@ abstract final class AgentUiTokens {
   static const radiusMedium = 14.0;
   static const radiusLarge = 20.0;
   static const messagePartHeaderMinHeight = 56.0;
+  static const messagePartContentMaxHeight = 320.0;
   static const messagePartGap = 10.0;
+  static const scrollBottomThreshold = 40.0;
   static const messageActionWidth = 34.0;
   static const messageActionHeight = 40.0;
   static const messageActionGap = 0.0;

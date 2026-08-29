@@ -288,7 +288,10 @@ async function copyOutput() {
   }
 
   .tool_body {
+    max-height: min(50vh, 360px);
     padding: 0 12px 10px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border-top: 1px solid rgba(0, 0, 0, 0.06);
 
     .risk_reason {
@@ -315,8 +318,6 @@ async function copyOutput() {
       .section_content {
         margin: 0;
         padding: 8px 10px;
-        max-height: 320px;
-        overflow: auto;
         border-radius: 6px;
         background-color: rgba(0, 0, 0, 0.05);
         font-family: 'JetBrains Mono', Menlo, Consolas, monospace;

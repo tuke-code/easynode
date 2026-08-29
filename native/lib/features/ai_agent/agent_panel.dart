@@ -18,6 +18,7 @@ import '../settings/ai_agent_settings_page.dart';
 import 'agent_controller.dart';
 import 'agent_feedback.dart';
 import 'agent_models.dart';
+import 'agent_reducer.dart';
 import 'agent_selection_sheet.dart';
 import 'agent_socket_client.dart';
 import 'agent_ui_tokens.dart';
@@ -45,16 +46,21 @@ class AgentPanel extends ConsumerStatefulWidget {
 class _AgentPanelState extends ConsumerState<AgentPanel> {
   final _draft = TextEditingController();
   final _scroll = ScrollController();
+  var _isAtBottom = true;
+  var _autoFollow = true;
+  var _scrollingToBottom = false;
 
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_handleScroll);
     Future.microtask(() => ref.read(agentControllerProvider.notifier).open());
   }
 
   @override
   void dispose() {
     _draft.dispose();
+    _scroll.removeListener(_handleScroll);
     _scroll.dispose();
     super.dispose();
   }
@@ -64,20 +70,18 @@ class _AgentPanelState extends ConsumerState<AgentPanel> {
     final state = ref.watch(agentControllerProvider);
     final l = AppLocalizations.of(context);
     ref.listen(agentControllerProvider, (previous, next) {
-      final oldParts =
-          previous?.conversation.messages.fold<int>(
-            0,
-            (sum, item) => sum + item.parts.length,
-          ) ??
-          0;
-      final newParts = next.conversation.messages.fold<int>(
-        0,
-        (sum, item) => sum + item.parts.length,
-      );
-      if (previous?.conversation.messages.length !=
-              next.conversation.messages.length ||
-          oldParts != newParts) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      final oldConversation = previous?.conversation;
+      final conversation = next.conversation;
+      final contentChanged =
+          oldConversation == null ||
+          !identical(oldConversation.messages, conversation.messages) ||
+          !identical(
+            oldConversation.pendingApprovals,
+            conversation.pendingApprovals,
+          ) ||
+          oldConversation.error != conversation.error;
+      if (contentChanged && _autoFollow) {
+        _scrollToBottom();
       }
     });
 
@@ -109,49 +113,91 @@ class _AgentPanelState extends ConsumerState<AgentPanel> {
             onClose: ref.read(agentControllerProvider.notifier).dismissNotices,
           ),
         Expanded(
-          child: state.conversation.messages.isEmpty
-              ? _AgentEmptyState(
-                  connected: state.connected,
-                  connecting:
-                      state.connection == AgentConnectionStatus.connecting,
-                  onRetry: _reconnect,
-                )
-              : ListView.builder(
-                  controller: _scroll,
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
-                  itemCount:
-                      state.conversation.messages.length +
-                      state.conversation.pendingApprovals.length +
-                      (state.conversation.error == null ? 0 : 1),
-                  itemBuilder: (context, index) {
-                    if (index < state.conversation.messages.length) {
-                      final message = state.conversation.messages[index];
-                      return AgentMessageView(
-                        message: message,
-                        running: state.conversation.running,
-                        waitingForModel:
-                            state.conversation.waitingForModel &&
-                            index == state.conversation.messages.length - 1,
-                      );
-                    }
-                    final approvalIndex =
-                        index - state.conversation.messages.length;
-                    if (approvalIndex <
-                        state.conversation.pendingApprovals.length) {
-                      return AgentApprovalCard(
-                        approval:
-                            state.conversation.pendingApprovals[approvalIndex],
-                      );
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        state.conversation.error!,
-                        style: TextStyle(color: context.colors.danger),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: state.conversation.messages.isEmpty
+                    ? _AgentEmptyState(
+                        connected: state.connected,
+                        connecting:
+                            state.connection ==
+                            AgentConnectionStatus.connecting,
+                        onRetry: _reconnect,
+                      )
+                    : ListView.builder(
+                        controller: _scroll,
+                        reverse: true,
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+                        itemCount:
+                            state.conversation.messages.length +
+                            state.conversation.pendingApprovals.length +
+                            (state.conversation.error == null ? 0 : 1),
+                        findChildIndexCallback: (key) =>
+                            _conversationChildIndex(key, state.conversation),
+                        itemBuilder: (context, index) {
+                          final itemCount =
+                              state.conversation.messages.length +
+                              state.conversation.pendingApprovals.length +
+                              (state.conversation.error == null ? 0 : 1);
+                          final logicalIndex = itemCount - index - 1;
+                          if (logicalIndex <
+                              state.conversation.messages.length) {
+                            final message =
+                                state.conversation.messages[logicalIndex];
+                            return AgentMessageView(
+                              key: ValueKey('agent-message-${message.id}'),
+                              message: message,
+                              running: state.conversation.running,
+                              waitingForModel:
+                                  state.conversation.waitingForModel &&
+                                  logicalIndex ==
+                                      state.conversation.messages.length - 1,
+                            );
+                          }
+                          final approvalIndex =
+                              logicalIndex - state.conversation.messages.length;
+                          if (approvalIndex <
+                              state.conversation.pendingApprovals.length) {
+                            return AgentApprovalCard(
+                              key: ValueKey(
+                                'agent-approval-${state.conversation.pendingApprovals[approvalIndex].requestId}',
+                              ),
+                              approval: state
+                                  .conversation
+                                  .pendingApprovals[approvalIndex],
+                            );
+                          }
+                          return Padding(
+                            key: const ValueKey('agent-conversation-error'),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              state.conversation.error!,
+                              style: TextStyle(color: context.colors.danger),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+              ),
+              if (!_isAtBottom && state.conversation.messages.isNotEmpty)
+                Positioned(
+                  right: 16,
+                  bottom: 12,
+                  child: FloatingActionButton.small(
+                    key: const Key('agent-scroll-to-bottom'),
+                    heroTag: null,
+                    tooltip: l.tr('agent.scrollToBottom'),
+                    elevation: 3,
+                    backgroundColor: context.colors.card,
+                    foregroundColor: context.colors.primary,
+                    shape: CircleBorder(
+                      side: BorderSide(color: context.colors.border),
+                    ),
+                    onPressed: _scrollToBottom,
+                    child: const Icon(Icons.keyboard_arrow_down_rounded),
+                  ),
                 ),
+            ],
+          ),
         ),
         _AgentComposer(controller: _draft, state: state, onSend: _send),
       ],
@@ -246,12 +292,36 @@ class _AgentPanelState extends ConsumerState<AgentPanel> {
   }
 
   void _scrollToBottom() {
-    if (!_scroll.hasClients) return;
-    _scroll.animateTo(
-      _scroll.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
+    _autoFollow = true;
+    if (!_isAtBottom && mounted) setState(() => _isAtBottom = true);
+    if (_scrollingToBottom) return;
+    _scrollingToBottom = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) {
+        _scrollingToBottom = false;
+        return;
+      }
+      final position = _scroll.position;
+      if (position.pixels != position.minScrollExtent) {
+        _scroll.jumpTo(position.minScrollExtent);
+      }
+      _scrollingToBottom = false;
+      _handleScroll();
+    });
+  }
+
+  void _handleScroll() {
+    if (_scrollingToBottom || !_scroll.hasClients) return;
+    final position = _scroll.position;
+    final distanceFromBottom = math.max(
+      0.0,
+      position.pixels - position.minScrollExtent,
     );
+    final isAtBottom = distanceFromBottom < AgentUiTokens.scrollBottomThreshold;
+    _autoFollow = isAtBottom;
+    if (isAtBottom != _isAtBottom && mounted) {
+      setState(() => _isAtBottom = isAtBottom);
+    }
   }
 
   Future<void> _showHistory(BuildContext context) async {
@@ -287,6 +357,34 @@ class _AgentPanelState extends ConsumerState<AgentPanel> {
   void _showError(Object error) {
     showAgentError(context, error);
   }
+}
+
+int? _conversationChildIndex(Key key, AgentConversationState conversation) {
+  if (key is! ValueKey<String>) return null;
+  final value = key.value;
+  final itemCount =
+      conversation.messages.length +
+      conversation.pendingApprovals.length +
+      (conversation.error == null ? 0 : 1);
+  int logicalIndex;
+  if (value.startsWith('agent-message-')) {
+    final id = value.substring('agent-message-'.length);
+    logicalIndex = conversation.messages.indexWhere((item) => item.id == id);
+  } else if (value.startsWith('agent-approval-')) {
+    final id = value.substring('agent-approval-'.length);
+    final approvalIndex = conversation.pendingApprovals.indexWhere(
+      (item) => item.requestId == id,
+    );
+    logicalIndex = approvalIndex < 0
+        ? -1
+        : conversation.messages.length + approvalIndex;
+  } else if (value == 'agent-conversation-error' &&
+      conversation.error != null) {
+    logicalIndex = itemCount - 1;
+  } else {
+    return null;
+  }
+  return logicalIndex < 0 ? null : itemCount - logicalIndex - 1;
 }
 
 String _noticeText(AppLocalizations l, String notice) {

@@ -645,6 +645,7 @@ const Map<String, String> stringsZh = {
   'agent.mode.assistDescription': '明确的只读操作自动执行，写入操作仍需确认。',
   'agent.mode.authorizedDescription': '在主机策略范围内自动执行常规操作。',
   'agent.thinking': '正在思考…',
+  'agent.scrollToBottom': '滚动到底部',
   'agent.analyzingTools': '正在分析工具结果…',
   'agent.reasoning': '推理过程',
   'agent.regenerate': '重新生成',

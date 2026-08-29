@@ -1,6 +1,7 @@
 import 'package:easynode_native/core/ui/app_color_theme.dart';
 import 'package:easynode_native/features/ai_agent/agent_models.dart';
 import 'package:easynode_native/features/ai_agent/agent_panel.dart';
+import 'package:easynode_native/features/ai_agent/agent_ui_tokens.dart';
 import 'package:easynode_native/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -47,6 +48,53 @@ void main() {
     expect(find.text('Arguments'), findsOneWidget);
     expect(find.text('Result'), findsOneWidget);
     expect(find.text('all good'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('long tool details are height limited and scrollable', (
+    tester,
+  ) async {
+    final output = List.generate(
+      100,
+      (index) => 'Output line $index',
+    ).join('\n');
+    final part = AgentToolPart(
+      toolCallId: 'long-tool',
+      tool: 'exec_command',
+      input: const {'command': 'generate-long-output'},
+      status: AgentToolStatus.done,
+      output: {'stdout': output},
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: ThemeData(
+          useMaterial3: true,
+          extensions: const [AppColorTheme.defaultLight],
+        ),
+        home: Scaffold(body: AgentToolCard(part: part)),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('agent-tool-toggle-long-tool')));
+    await tester.pumpAndSettle();
+
+    final scroll = find.byKey(
+      const ValueKey('agent-tool-details-scroll-long-tool'),
+    );
+    expect(
+      tester.getSize(scroll).height,
+      AgentUiTokens.messagePartContentMaxHeight,
+    );
+    expect(tester.widget<SingleChildScrollView>(scroll).primary, isFalse);
     expect(tester.takeException(), isNull);
   });
 }

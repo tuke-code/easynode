@@ -93,6 +93,57 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('long reasoning content is height limited and scrollable', (
+    tester,
+  ) async {
+    final message = AgentMessage(
+      id: 'assistant-long-reasoning',
+      role: AgentMessageRole.assistant,
+      parts: [
+        AgentReasoningPart(
+          List.generate(100, (index) => 'Reasoning line $index').join('\n'),
+        ),
+      ],
+      createdAt: 1,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(
+            useMaterial3: true,
+            extensions: const [AppColorTheme.defaultLight],
+          ),
+          home: Scaffold(
+            body: AgentMessageView(
+              message: message,
+              running: true,
+              waitingForModel: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('agent-reasoning-toggle')));
+    await tester.pumpAndSettle();
+
+    final scroll = find.byKey(const Key('agent-reasoning-content-scroll'));
+    expect(
+      tester.getSize(scroll).height,
+      AgentUiTokens.messagePartContentMaxHeight,
+    );
+    expect(tester.widget<SingleChildScrollView>(scroll).primary, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('collapsed message cards share height and outer spacing', (
     tester,
   ) async {

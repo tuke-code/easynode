@@ -634,13 +634,22 @@ class _ReasoningBlockState extends State<_ReasoningBlock> {
             child: expanded
                 ? Padding(
                     padding: const EdgeInsets.fromLTRB(12, 2, 12, 12),
-                    child: SelectableText(
-                      widget.part.text,
-                      key: const Key('agent-reasoning-content'),
-                      style: TextStyle(
-                        color: colors.muted,
-                        fontSize: 13,
-                        height: 1.55,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxHeight: AgentUiTokens.messagePartContentMaxHeight,
+                      ),
+                      child: SingleChildScrollView(
+                        key: const Key('agent-reasoning-content-scroll'),
+                        primary: false,
+                        child: SelectableText(
+                          widget.part.text,
+                          key: const Key('agent-reasoning-content'),
+                          style: TextStyle(
+                            color: colors.muted,
+                            fontSize: 13,
+                            height: 1.55,
+                          ),
+                        ),
                       ),
                     ),
                   )

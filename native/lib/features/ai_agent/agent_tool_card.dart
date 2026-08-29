@@ -173,39 +173,50 @@ class _AgentToolCardState extends State<AgentToolCard> {
                 ? Padding(
                     key: ValueKey('agent-tool-details-${part.toolCallId}'),
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (part.risk?['reason'] != null)
-                          _DetailBlock(
-                            label:
-                                part.risk?['category']?.toString() ??
-                                l.tr('agent.risk'),
-                            text: part.risk!['reason'].toString(),
-                            danger: true,
-                          ),
-                        if (part.input.isNotEmpty)
-                          _DetailBlock(
-                            label: l.tr('agent.arguments'),
-                            text: const JsonEncoder.withIndent(
-                              '  ',
-                            ).convert(part.input),
-                          ),
-                        if (part.error != null)
-                          _DetailBlock(
-                            label: l.tr('common.error'),
-                            text: part.error == 'tool_incomplete'
-                                ? l.tr('agent.toolIncomplete')
-                                : part.error!,
-                            danger: true,
-                          )
-                        else if (part.output != null)
-                          _DetailBlock(
-                            label: l.tr('agent.result'),
-                            text: _stringifyOutput(part.output),
-                            copyable: true,
-                          ),
-                      ],
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxHeight: AgentUiTokens.messagePartContentMaxHeight,
+                      ),
+                      child: SingleChildScrollView(
+                        key: ValueKey(
+                          'agent-tool-details-scroll-${part.toolCallId}',
+                        ),
+                        primary: false,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (part.risk?['reason'] != null)
+                              _DetailBlock(
+                                label:
+                                    part.risk?['category']?.toString() ??
+                                    l.tr('agent.risk'),
+                                text: part.risk!['reason'].toString(),
+                                danger: true,
+                              ),
+                            if (part.input.isNotEmpty)
+                              _DetailBlock(
+                                label: l.tr('agent.arguments'),
+                                text: const JsonEncoder.withIndent(
+                                  '  ',
+                                ).convert(part.input),
+                              ),
+                            if (part.error != null)
+                              _DetailBlock(
+                                label: l.tr('common.error'),
+                                text: part.error == 'tool_incomplete'
+                                    ? l.tr('agent.toolIncomplete')
+                                    : part.error!,
+                                danger: true,
+                              )
+                            else if (part.output != null)
+                              _DetailBlock(
+                                label: l.tr('agent.result'),
+                                text: _stringifyOutput(part.output),
+                                copyable: true,
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   )
                 : const SizedBox(width: double.infinity),

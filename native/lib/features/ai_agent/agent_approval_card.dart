@@ -61,55 +61,71 @@ class _AgentApprovalCardState extends ConsumerState<AgentApprovalCard> {
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            l.trf('agent.approval.description', [
-              item.hostName ?? '-',
-              _toolLabel(l, item.tool),
-            ]),
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxHeight: AgentUiTokens.messagePartContentMaxHeight,
+            ),
+            child: SingleChildScrollView(
+              key: const Key('agent-approval-details-scroll'),
+              primary: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l.trf('agent.approval.description', [
+                      item.hostName ?? '-',
+                      _toolLabel(l, item.tool),
+                    ]),
+                  ),
+                  if (item.effect != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      l.trf('agent.approval.scope', [
+                        l.tr('agent.effect.${item.effect}'),
+                      ]),
+                      style: TextStyle(color: context.colors.muted),
+                    ),
+                  ],
+                  if (item.targets.isNotEmpty)
+                    _DetailBlock(
+                      label: l.tr('agent.approval.targets'),
+                      text: item.targets.join('\n'),
+                    ),
+                  if (item.sensitiveDisclosure) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      l.tr('agent.approval.sensitive'),
+                      style: TextStyle(
+                        color: context.colors.danger,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  if (preview?['diff'] != null)
+                    _DetailBlock(
+                      label: l.tr('agent.approval.diff'),
+                      text: preview!['diff'].toString(),
+                      copyable: true,
+                    )
+                  else
+                    _DetailBlock(
+                      label: l.tr('agent.arguments'),
+                      text: const JsonEncoder.withIndent(
+                        '  ',
+                      ).convert(item.input),
+                    ),
+                  if (item.risk?['reason'] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        item.risk!['reason'].toString(),
+                        style: TextStyle(color: context.colors.danger),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
-          if (item.effect != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              l.trf('agent.approval.scope', [
-                l.tr('agent.effect.${item.effect}'),
-              ]),
-              style: TextStyle(color: context.colors.muted),
-            ),
-          ],
-          if (item.targets.isNotEmpty)
-            _DetailBlock(
-              label: l.tr('agent.approval.targets'),
-              text: item.targets.join('\n'),
-            ),
-          if (item.sensitiveDisclosure) ...[
-            const SizedBox(height: 8),
-            Text(
-              l.tr('agent.approval.sensitive'),
-              style: TextStyle(
-                color: context.colors.danger,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          if (preview?['diff'] != null)
-            _DetailBlock(
-              label: l.tr('agent.approval.diff'),
-              text: preview!['diff'].toString(),
-              copyable: true,
-            )
-          else
-            _DetailBlock(
-              label: l.tr('agent.arguments'),
-              text: const JsonEncoder.withIndent('  ').convert(item.input),
-            ),
-          if (item.risk?['reason'] != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                item.risk!['reason'].toString(),
-                style: TextStyle(color: context.colors.danger),
-              ),
-            ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,

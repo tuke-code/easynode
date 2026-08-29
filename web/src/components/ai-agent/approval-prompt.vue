@@ -250,7 +250,10 @@ function formatBytes(value) {
   }
 
   .prompt_body {
+    max-height: min(50vh, 360px);
     padding: 10px 12px 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     font-size: 13px;
 
     .prompt_desc {
