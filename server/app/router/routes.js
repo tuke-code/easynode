@@ -7,7 +7,7 @@ import { getGroupList, addGroupList, updateGroupList, removeGroup } from '../con
 import { getScriptList, getLocalScriptList, addScript, updateScriptList, removeScript, batchRemoveScript, importScript } from '../controller/scripts.js'
 import { getScriptGroupList, addScriptGroup, removeScriptGroup, updateScriptGroup } from '../controller/script-group.js'
 import { getOnekeyRecord, removeOnekeyRecord } from '../controller/onekey.js'
-import { getLog, saveIpWhiteList, removeSomeLoginRecords, revokeLoginSid } from '../controller/sessionLog.js'
+import { getLog, saveIpWhiteList, revokeAllLoginSessions, revokeLoginSid } from '../controller/sessionLog.js'
 import { getAIConfig, saveAIConfig, getAIModels, updateAIPreferences } from '../controller/chat.js'
 import { getAgentSessions, getAgentSessionDetail, updateAgentSession, forkAgentSession, removeAgentSession, clearAgentSessions, editAgentSessionMessage } from '../controller/agent-session.js'
 import { getAgentMcpServers, addAgentMcpServer, editAgentMcpServer, removeAgentMcpServer, testAgentMcpConnection, discoverAgentMcpServer } from '../controller/agent-mcp.js'
@@ -296,8 +296,8 @@ const log = [
   },
   {
     method: 'delete',
-    path: '/remove-some-login-records',
-    controller: removeSomeLoginRecords
+    path: '/revoke-all-sessions',
+    controller: revokeAllLoginSessions
   },
   {
     method: 'delete',

@@ -376,11 +376,12 @@ const Map<String, String> stringsEn = {
   'sessions.ipEmpty': 'No IPs configured — access is unrestricted',
   'sessions.ipSave': 'Save whitelist',
   'sessions.loginRecordsTitle': 'Login records',
-  'sessions.purgeTooltip': 'Delete records older than 7 days',
-  'sessions.purgeConfirmTitle': 'Purge old records?',
-  'sessions.purgeConfirmBody':
-      'All login records older than 7 days will be deleted.',
-  'sessions.purgeDone': 'Old records cleared',
+  'sessions.retentionTip':
+      'Login records are retained for 90 days and then deleted automatically.',
+  'sessions.revokeAll': 'Log out all',
+  'sessions.revokeAllConfirmTitle': 'Log out all sessions?',
+  'sessions.revokeAllConfirmBody':
+      'Every device, including this one, will be signed out immediately.',
   'sessions.current': 'Current session',
   'sessions.native': 'Native',
   'sessions.revoked': 'Revoked',

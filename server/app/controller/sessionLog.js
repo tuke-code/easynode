@@ -1,8 +1,12 @@
 import { KeyDB, SessionDB } from '../utils/db-class.js'
+import { cookieSecure } from '../config/index.js'
+import { disconnectAllSessionConnections, revokeAllSessions } from '../utils/auth-session.js'
+import { pruneLoginLogs } from '../utils/login-log.js'
 const keyDB = new KeyDB().getInstance()
 const sessionDB = new SessionDB().getInstance()
 
 async function getLog({ res }) {
+  await pruneLoginLogs(sessionDB)
   let sessionList = await sessionDB.findAsync({})
   let { ipWhiteList = [] } = await keyDB.findOneAsync({}) || {}
   ipWhiteList = ipWhiteList.filter(ip => typeof ip === 'string' && ip.trim() !== '')
@@ -24,13 +28,6 @@ const saveIpWhiteList = async ({ res, request }) => {
   res.success({ msg: 'success' })
 }
 
-const removeSomeLoginRecords = async ({ res }) => {
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const result = await sessionDB.removeAsync({ create: { $lt: sevenDaysAgo } }, { multi: true })
-  if (result === 0) return res.success({ msg: '没有符合条件的登录日志' })
-  res.success({ msg: `已成功移除 ${ result } 条登录日志` })
-}
-
 const revokeLoginSid = async (ctx) => {
   const { res, request, cookies } = ctx
   let { params: { id } } = request
@@ -50,9 +47,25 @@ const revokeLoginSid = async (ctx) => {
   res.success({ msg: '注销凭证成功' })
 }
 
+const revokeAllLoginSessions = async (ctx) => {
+  try {
+    await revokeAllSessions(sessionDB)
+  } finally {
+    // 已建立的长连接不会再次经过鉴权，需要主动断开。
+    disconnectAllSessionConnections()
+  }
+  ctx.cookies.set('session', '', {
+    httpOnly: true,
+    expires: new Date(0),
+    sameSite: 'strict',
+    secure: cookieSecure
+  })
+  ctx.res.success({ msg: '已注销所有会话，请重新登录' })
+}
+
 export {
   getLog,
   saveIpWhiteList,
-  removeSomeLoginRecords,
+  revokeAllLoginSessions,
   revokeLoginSid
 }

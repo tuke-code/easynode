@@ -1,8 +1,10 @@
 import schedule from 'node-schedule'
 import { sendNoticeAsync } from '../utils/notify.js'
 import { formatTimestamp } from '../utils/tools.js'
-import { HostListDB } from '../utils/db-class.js'
+import { HostListDB, SessionDB } from '../utils/db-class.js'
+import { LOGIN_LOG_RETENTION_DAYS, pruneLoginLogs } from '../utils/login-log.js'
 const hostListDB = new HostListDB().getInstance()
+const sessionDB = new SessionDB().getInstance()
 
 const expiredNotifyJob = async () => {
   logger.info('=====开始检测服务器到期时间=====', new Date())
@@ -27,6 +29,12 @@ const expiredNotifyJob = async () => {
   }
 }
 
+const loginLogRetentionJob = async () => {
+  const removed = await pruneLoginLogs(sessionDB)
+  if (removed > 0) logger.info(`已清理 ${ removed } 条超过 ${ LOGIN_LOG_RETENTION_DAYS } 天的登录日志`)
+}
+
 export default () => {
   schedule.scheduleJob('0 0 12 1/1 * ?', expiredNotifyJob)
+  schedule.scheduleJob('0 0 3 * * *', loginLogRetentionJob)
 }

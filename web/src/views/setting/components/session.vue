@@ -24,6 +24,14 @@
     </template>
   </el-alert>
 
+  <el-alert
+    class="retention_tip"
+    type="info"
+    title="登录记录默认保留 90 天，超过 90 天的记录将自动清理"
+    show-icon
+    :closable="false"
+  />
+
   <!-- table -->
   <el-table v-loading="loading" :data="loginRecordList">
     <el-table-column prop="ip" label="IP" />
@@ -71,12 +79,12 @@
     <el-table-column label="操作" width="200">
       <template #header>
         <el-button
-          type="info"
+          type="warning"
           size="small"
-          :loading="removeLogLoading"
-          @click="handleRemoveLogs"
+          :loading="revokeAllLoading"
+          @click="handleRevokeAllSessions"
         >
-          移除一周前的登录日志
+          注销所有会话
         </el-button>
       </template>
       <template #default="{ row }">
@@ -100,13 +108,13 @@ import { InfoFilled } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import dayjs from 'dayjs'
 
-const { proxy: { $api, $message, $messageBox, $store } } = getCurrentInstance()
+const { proxy: { $api, $message, $messageBox, $store, $router } } = getCurrentInstance()
 const route = useRoute()
 
 const loginRecordList = ref([])
 const loading = ref(false)
 const btnLoading = ref(false)
-const removeLogLoading = ref(false)
+const revokeAllLoading = ref(false)
 const removeSidLoading = ref(false)
 const total = ref('')
 const allowedIPs = ref([])
@@ -152,23 +160,24 @@ const handleSaveAllowedIPs = async () => {
   }
 }
 
-const handleRemoveLogs = async () => {
-  $messageBox.confirm('确定要移除一周前的登录日志吗？', '提示', {
+const handleRevokeAllSessions = async () => {
+  $messageBox.confirm('确定要注销所有会话吗？所有设备（包括当前设备）都将立即退出登录。', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   })
     .then(async () => {
-      removeLogLoading.value = true
+      revokeAllLoading.value = true
       try {
-        const { msg } = await $api.removeSomeLoginRecords()
-        handleLookupLoginRecord()
+        const { msg } = await $api.revokeAllSessions()
         $message.success(msg)
+        await $store.removeLoginInfo()
+        await $router.push('/login')
       } catch (error) {
         console.error(error)
-        $message.error('移除一周前的登录日志失败')
+        $message.error('注销所有会话失败')
       } finally {
-        removeLogLoading.value = false
+        revokeAllLoading.value = false
       }
     })
 }
@@ -198,5 +207,9 @@ onMounted(() => {
 <style lang="scss" scoped>
 .allowed_ip_tag {
   margin: 0 5px;
+}
+
+.retention_tip {
+  margin: 12px 0;
 }
 </style>

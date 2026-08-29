@@ -112,8 +112,8 @@ class SettingsRepository {
     await apiClient.deleteJson('/revoke-login/$idOrDeviceId');
   }
 
-  Future<void> purgeOldSessions() async {
-    await apiClient.deleteJson('/remove-some-login-records');
+  Future<void> revokeAllSessions() async {
+    await apiClient.deleteJson('/revoke-all-sessions');
   }
 
   // ---- Proxies CRUD ----

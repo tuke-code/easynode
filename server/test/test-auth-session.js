@@ -6,6 +6,7 @@ import {
   registerSocketServer,
   revokeAllSessions
 } from '../app/utils/auth-session.js'
+import { LOGIN_LOG_RETENTION_DAYS, pruneLoginLogs } from '../app/utils/login-log.js'
 
 const calls = []
 const sessionStore = {
@@ -34,6 +35,19 @@ await revokeAllSessions(realSessionStore)
 const storedSessions = await realSessionStore.findAsync({})
 assert.equal(storedSessions.length, 3)
 assert.ok(storedSessions.every(session => session.revoked === true))
+
+const now = Date.UTC(2026, 7, 29)
+const loginLogStore = new Datastore()
+await loginLogStore.insertAsync([
+  { session: 'old', create: now - (LOGIN_LOG_RETENTION_DAYS + 1) * 24 * 60 * 60 * 1000 },
+  { session: 'boundary', create: now - LOGIN_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000 },
+  { session: 'recent', create: now - 10 * 24 * 60 * 60 * 1000 }
+])
+assert.equal(await pruneLoginLogs(loginLogStore, now), 1)
+assert.deepEqual(
+  (await loginLogStore.findAsync({})).map(item => item.session).sort(),
+  ['boundary', 'recent']
+)
 
 let disconnectCalls = 0
 let destroyCalls = 0

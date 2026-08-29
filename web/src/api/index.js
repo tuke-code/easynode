@@ -228,8 +228,8 @@ export default {
       skipErrorMessage: true
     })
   },
-  removeSomeLoginRecords() {
-    return axios({ url: '/remove-some-login-records', method: 'delete' })
+  revokeAllSessions() {
+    return axios({ url: '/revoke-all-sessions', method: 'delete' })
   },
   revokeLoginSid(id) {
     return axios({ url: `/revoke-login/${ id }`, method: 'delete' })

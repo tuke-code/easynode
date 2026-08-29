@@ -22,7 +22,7 @@ class _SessionsPageState extends ConsumerState<SessionsPage> {
   late List<String> _whitelist;
   bool _whitelistDirty = false;
   bool _whitelistSaving = false;
-  bool _purging = false;
+  bool _revokingAll = false;
   String? _revokingId;
 
   @override
@@ -89,37 +89,40 @@ class _SessionsPageState extends ConsumerState<SessionsPage> {
     }
   }
 
-  Future<void> _purgeOld() async {
+  Future<void> _revokeAll() async {
     final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(l.tr('sessions.purgeConfirmTitle')),
-        content: Text(l.tr('sessions.purgeConfirmBody')),
+        title: Text(l.tr('sessions.revokeAllConfirmTitle')),
+        content: Text(l.tr('sessions.revokeAllConfirmBody')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(l.tr('common.cancel')),
           ),
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: ctx.colors.warning,
+              foregroundColor: ctx.colors.fontOnPrimary,
+            ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(l.tr('common.continue')),
+            child: Text(l.tr('sessions.revokeAll')),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
-    setState(() => _purging = true);
+    setState(() => _revokingAll = true);
     try {
-      await ref.read(settingsRepositoryProvider).purgeOldSessions();
+      await ref.read(settingsRepositoryProvider).revokeAllSessions();
       if (!mounted) return;
-      _showSnack(l.tr('sessions.purgeDone'));
-      await ref.read(loginLogProvider.notifier).refresh();
+      await ref.read(authProvider.notifier).signOut();
     } on ApiFailure catch (err) {
       if (!mounted) return;
       _showSnack(err.message);
     } finally {
-      if (mounted) setState(() => _purging = false);
+      if (mounted) setState(() => _revokingAll = false);
     }
   }
 
@@ -195,19 +198,22 @@ class _SessionsPageState extends ConsumerState<SessionsPage> {
         scrolledUnderElevation: 0,
         title: Text(l.tr('settings.sessions.title')),
         actions: [
-          IconButton(
-            tooltip: l.tr('sessions.purgeTooltip'),
-            onPressed: _purging || logAsync.isLoading ? null : _purgeOld,
-            icon: _purging
+          TextButton.icon(
+            onPressed: _revokingAll || logAsync.isLoading ? null : _revokeAll,
+            style: TextButton.styleFrom(
+              foregroundColor: context.colors.warning,
+            ),
+            icon: _revokingAll
                 ? SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: context.colors.danger,
+                      color: context.colors.warning,
                     ),
                   )
-                : Icon(Icons.delete_outline, color: context.colors.danger),
+                : Icon(Icons.logout_rounded, color: context.colors.warning),
+            label: Text(l.tr('sessions.revokeAll')),
           ),
           const SizedBox(width: 6),
         ],
@@ -252,6 +258,8 @@ class _SessionsPageState extends ConsumerState<SessionsPage> {
           label: l.tr('sessions.loginRecordsTitle'),
           count: data.sessions.length,
         ),
+        _RetentionTip(label: l.tr('sessions.retentionTip')),
+        const SizedBox(height: 10),
         if (data.sessions.isEmpty)
           _EmptyState(label: l.tr('sessions.empty'))
         else
@@ -270,6 +278,40 @@ class _SessionsPageState extends ConsumerState<SessionsPage> {
               ),
             ),
       ],
+    );
+  }
+}
+
+class _RetentionTip extends StatelessWidget {
+  const _RetentionTip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: context.colors.accentSoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.colors.strongBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, size: 17, color: context.colors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: context.colors.muted,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
