@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/storage/app_storage.dart';
 import '../features/ai_agent/agent_controller.dart';
+import '../features/ai_agent/agent_mcp_models.dart';
 import '../features/ai_agent/agent_models.dart';
 import '../features/ai_agent/agent_repository.dart';
 import '../features/ai_agent/agent_socket_client.dart';
@@ -104,6 +105,63 @@ final agentSettingsProvider =
     AsyncNotifierProvider<AgentSettingsNotifier, AgentSettingsData>(
       AgentSettingsNotifier.new,
     );
+
+class AgentMcpServersNotifier
+    extends AutoDisposeAsyncNotifier<List<AgentMcpServer>> {
+  AgentRepository get _repository => ref.read(agentRepositoryProvider);
+
+  @override
+  Future<List<AgentMcpServer>> build() => _repository.getMcpServers();
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(build);
+  }
+
+  Future<AgentMcpServer> create(Map<String, dynamic> payload) async {
+    final server = await _repository.createMcpServer(payload);
+    state = AsyncData([...state.valueOrNull ?? const [], server]);
+    return server;
+  }
+
+  Future<AgentMcpServer> save(String id, Map<String, dynamic> payload) async {
+    final server = await _repository.updateMcpServer(id, payload);
+    _replace(server);
+    return server;
+  }
+
+  Future<int> testConnection(Map<String, dynamic> payload) =>
+      _repository.testMcpConnection(payload);
+
+  Future<AgentMcpServer> discover(String id) async {
+    final server = await _repository.discoverMcpServer(id);
+    _replace(server);
+    return server;
+  }
+
+  Future<void> remove(String id) async {
+    await _repository.deleteMcpServer(id);
+    state = AsyncData(
+      (state.valueOrNull ?? const [])
+          .where((server) => server.id != id)
+          .toList(growable: false),
+    );
+  }
+
+  void _replace(AgentMcpServer server) {
+    state = AsyncData(
+      (state.valueOrNull ?? const [])
+          .map((item) => item.id == server.id ? server : item)
+          .toList(growable: false),
+    );
+  }
+}
+
+final agentMcpServersProvider =
+    AsyncNotifierProvider.autoDispose<
+      AgentMcpServersNotifier,
+      List<AgentMcpServer>
+    >(AgentMcpServersNotifier.new);
 
 final agentHostPoliciesProvider = Provider<List<AgentHostPolicy>>((ref) {
   final hosts = ref.watch(hostListProvider).valueOrNull;

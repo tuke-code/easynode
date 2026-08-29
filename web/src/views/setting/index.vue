@@ -1,6 +1,6 @@
 <template>
   <div class="setting_container">
-    <el-tabs v-model="tabKey" tab-position="top">
+    <el-tabs v-model="tabKey" tab-position="left" class="setting_tabs">
       <el-tab-pane label="修改密码" name="user">
         <User />
       </el-tab-pane>
@@ -55,6 +55,41 @@ watch(() => tabKey.value, (newVal) => {
 .setting_container {
   height: 100%;
   padding: 20px;
-  overflow: auto;
+  overflow: hidden;
+}
+
+.setting_tabs {
+  height: 100%;
+
+  > :deep(.el-tabs__header.is-left) {
+    width: 132px;
+    margin-right: 24px;
+  }
+
+  > :deep(.el-tabs__header.is-left .el-tabs__item) {
+    justify-content: flex-start;
+    height: 44px;
+    padding: 0 16px;
+  }
+
+  > :deep(.el-tabs__header.is-left .el-tabs__nav-wrap::after) { width: 1px; }
+  > :deep(.el-tabs__header.is-left .el-tabs__active-bar) { width: 2px; }
+
+  > :deep(.el-tabs__content) {
+    min-width: 0;
+    height: 100%;
+    overflow: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .setting_tabs > :deep(.el-tabs__header.is-left) {
+    width: 112px;
+    margin-right: 12px;
+  }
+
+  .setting_tabs > :deep(.el-tabs__header.is-left .el-tabs__item) {
+    padding: 0 10px;
+  }
 }
 </style>

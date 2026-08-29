@@ -8,6 +8,7 @@ import '../../state/agent_providers.dart';
 import '../ai_agent/agent_models.dart';
 import '../ai_agent/agent_selection_sheet.dart';
 import '../ai_agent/agent_ui_tokens.dart';
+import 'agent_mcp_settings.dart';
 import 'widgets/settings_section.dart';
 
 part 'ai_agent_settings_widgets.dart';
@@ -21,7 +22,8 @@ class AiAgentSettingsPage extends ConsumerStatefulWidget {
       _AiAgentSettingsPageState();
 }
 
-class _AiAgentSettingsPageState extends ConsumerState<AiAgentSettingsPage> {
+class _AiAgentSettingsPageState extends ConsumerState<AiAgentSettingsPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _url = TextEditingController();
   final _key = TextEditingController();
@@ -37,6 +39,19 @@ class _AiAgentSettingsPageState extends ConsumerState<AiAgentSettingsPage> {
   bool _modelsInvalid = false;
   List<AgentHostPolicy> _hostPolicies = const [];
   final Set<String> _changedHostIds = {};
+  late final TabController _tabs;
+  int _tabIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 3, vsync: this)
+      ..addListener(() {
+        if (!_tabs.indexIsChanging && _tabIndex != _tabs.index && mounted) {
+          setState(() => _tabIndex = _tabs.index);
+        }
+      });
+  }
 
   @override
   void dispose() {
@@ -45,6 +60,7 @@ class _AiAgentSettingsPageState extends ConsumerState<AiAgentSettingsPage> {
     _models.dispose();
     _contextLimit.dispose();
     _maxSteps.dispose();
+    _tabs.dispose();
     super.dispose();
   }
 
@@ -75,8 +91,27 @@ class _AiAgentSettingsPageState extends ConsumerState<AiAgentSettingsPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(l.tr('agent.settings')),
+        bottom: TabBar(
+          controller: _tabs,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          tabs: [
+            Tab(
+              icon: const Icon(Icons.memory_outlined, size: 19),
+              text: l.tr('agent.settings.tab.provider'),
+            ),
+            Tab(
+              icon: const Icon(Icons.extension_outlined, size: 19),
+              text: l.tr('agent.settings.tab.mcp'),
+            ),
+            Tab(
+              icon: const Icon(Icons.admin_panel_settings_outlined, size: 19),
+              text: l.tr('agent.settings.tab.hosts'),
+            ),
+          ],
+        ),
       ),
-      bottomNavigationBar: data == null
+      bottomNavigationBar: data == null || _tabIndex == 1
           ? null
           : _SaveBar(
               saving: _saving,
@@ -90,113 +125,123 @@ class _AiAgentSettingsPageState extends ConsumerState<AiAgentSettingsPage> {
         ),
         data: (_) => Form(
           key: _formKey,
-          child: ListView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.only(bottom: 24),
+          child: TabBarView(
+            controller: _tabs,
             children: [
-              SettingsSection(
-                title: l.tr('agent.settings.interface'),
-                children: [
-                  Material(
-                    color: Colors.transparent,
-                    child: SwitchListTile(
-                      contentPadding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
-                      secondary: Icon(
-                        Icons.smart_toy_outlined,
-                        color: context.colors.primary,
-                      ),
-                      title: Text(
-                        l.tr('agent.settings.showEntry'),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Text(l.tr('agent.settings.showEntryHint')),
-                      ),
-                      value: _nativeAgentEnabled,
-                      onChanged: _setEnabled,
-                    ),
-                  ),
-                ],
-              ),
-              SettingsSection(
-                title: l.tr('agent.settings.provider'),
-                children: [
-                  _SettingsChoiceRow(
-                    key: const Key('agent-provider-row'),
-                    icon: Icons.hub_outlined,
-                    label: l.tr('agent.settings.providerType'),
-                    value: _providerLabel(_provider),
-                    onTap: _pickProvider,
-                  ),
-                  _SettingsField(
-                    label: 'Base URL',
-                    controller: _url,
-                    hintText: _providerUrlHint,
-                    keyboardType: TextInputType.url,
-                    monospace: true,
-                    validator: (value) {
-                      final uri = Uri.tryParse(value?.trim() ?? '');
-                      return uri != null &&
-                              (uri.scheme == 'http' || uri.scheme == 'https')
-                          ? null
-                          : l.tr('agent.settings.invalidUrl');
-                    },
-                  ),
-                  _SettingsField(
-                    label: 'API Key',
-                    controller: _key,
-                    obscureText: _obscureKey,
-                    monospace: true,
-                    suffix: IconButton(
-                      tooltip: _obscureKey
-                          ? l.tr('common.show')
-                          : l.tr('common.hide'),
-                      onPressed: () =>
-                          setState(() => _obscureKey = !_obscureKey),
-                      icon: Icon(
-                        _obscureKey
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                        size: 20,
-                      ),
-                    ),
-                    validator: (value) => value?.trim().isNotEmpty == true
-                        ? null
-                        : l.tr('agent.settings.required'),
-                  ),
-                  _ModelSelectionRow(
-                    models: _parseModels(_models.text),
-                    invalid: _modelsInvalid,
-                    onTap: _pickModels,
-                  ),
-                  _LimitsRow(contextLimit: _contextLimit, maxSteps: _maxSteps),
-                ],
-              ),
-              SettingsSection(
-                title: l.tr('agent.settings.hostPolicies'),
-                children: _hostPolicies.isEmpty
-                    ? [
-                        _EmptyHosts(
-                          text: l.tr('agent.settings.hostPoliciesEmpty'),
+              _settingsList([
+                SettingsSection(
+                  title: l.tr('agent.settings.provider'),
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: SwitchListTile(
+                        contentPadding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
+                        secondary: Icon(
+                          Icons.smart_toy_outlined,
+                          color: context.colors.primary,
                         ),
-                      ]
-                    : _hostPolicies
-                          .map(
-                            (policy) => _HostPolicySummaryRow(
-                              key: ValueKey(policy.hostId),
-                              policy: policy,
-                              onTap: () => _editHostPolicy(policy),
-                            ),
-                          )
-                          .toList(growable: false),
-              ),
+                        title: Text(
+                          l.tr('agent.settings.showEntry'),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Text(l.tr('agent.settings.showEntryHint')),
+                        ),
+                        value: _nativeAgentEnabled,
+                        onChanged: _setEnabled,
+                      ),
+                    ),
+                    _SettingsChoiceRow(
+                      key: const Key('agent-provider-row'),
+                      icon: Icons.hub_outlined,
+                      label: l.tr('agent.settings.providerType'),
+                      value: _providerLabel(_provider),
+                      onTap: _pickProvider,
+                    ),
+                    _SettingsField(
+                      label: 'Base URL',
+                      controller: _url,
+                      hintText: _providerUrlHint,
+                      keyboardType: TextInputType.url,
+                      monospace: true,
+                      validator: (value) {
+                        final uri = Uri.tryParse(value?.trim() ?? '');
+                        return uri != null &&
+                                (uri.scheme == 'http' || uri.scheme == 'https')
+                            ? null
+                            : l.tr('agent.settings.invalidUrl');
+                      },
+                    ),
+                    _SettingsField(
+                      label: 'API Key',
+                      controller: _key,
+                      obscureText: _obscureKey,
+                      monospace: true,
+                      suffix: IconButton(
+                        tooltip: _obscureKey
+                            ? l.tr('common.show')
+                            : l.tr('common.hide'),
+                        onPressed: () =>
+                            setState(() => _obscureKey = !_obscureKey),
+                        icon: Icon(
+                          _obscureKey
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 20,
+                        ),
+                      ),
+                      validator: (value) => value?.trim().isNotEmpty == true
+                          ? null
+                          : l.tr('agent.settings.required'),
+                    ),
+                    _ModelSelectionRow(
+                      models: _parseModels(_models.text),
+                      invalid: _modelsInvalid,
+                      onTap: _pickModels,
+                    ),
+                    _LimitsRow(
+                      contextLimit: _contextLimit,
+                      maxSteps: _maxSteps,
+                    ),
+                  ],
+                ),
+              ]),
+              _tabIndex == 1
+                  ? const AgentMcpSettings()
+                  : const SizedBox.shrink(),
+              _settingsList([
+                SettingsSection(
+                  title: l.tr('agent.settings.hostPolicies'),
+                  children: _hostPolicies.isEmpty
+                      ? [
+                          _EmptyHosts(
+                            text: l.tr('agent.settings.hostPoliciesEmpty'),
+                          ),
+                        ]
+                      : _hostPolicies
+                            .map(
+                              (policy) => _HostPolicySummaryRow(
+                                key: ValueKey(policy.hostId),
+                                policy: policy,
+                                onTap: () => _editHostPolicy(policy),
+                              ),
+                            )
+                            .toList(growable: false),
+                ),
+              ]),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _settingsList(List<Widget> children) => ListView(
+    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+    padding: const EdgeInsets.only(bottom: 24),
+    children: children,
+  );
 
   String get _providerUrlHint => switch (_provider) {
     'anthropic' => 'https://api.anthropic.com/v1',
@@ -351,7 +396,8 @@ class _AiAgentSettingsPageState extends ConsumerState<AiAgentSettingsPage> {
         await ref.read(agentControllerProvider.notifier).refreshConnection();
       }
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      _changedHostIds.clear();
+      _show(AppLocalizations.of(context).tr('common.saved'));
     } catch (error) {
       if (mounted) _show(error.toString());
     } finally {

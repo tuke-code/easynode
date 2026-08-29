@@ -101,15 +101,51 @@ class _AgentToolCardState extends State<AgentToolCard> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                _toolLabel(l, part.tool),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: context.colors.text,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      part.isMcp
+                                          ? part.displayName
+                                          : _toolLabel(l, part.tool),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: context.colors.text,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  if (part.isMcp) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 132,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: context.colors.accentSoft,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        part.providerName.isEmpty
+                                            ? 'MCP'
+                                            : 'MCP · ${part.providerName}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: context.colors.primary,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                               if (summary.isNotEmpty) ...[
                                 const SizedBox(height: 2),
@@ -341,12 +377,19 @@ String _toolLabel(AppLocalizations l, String tool) {
 
 String _toolSummary(AgentToolPart part) {
   final input = part.input;
-  return (input['scriptName'] ??
-          input['command'] ??
-          input['path'] ??
-          input['keyword'] ??
-          '')
-      .toString();
+  final known =
+      (input['scriptName'] ??
+              input['command'] ??
+              input['path'] ??
+              input['keyword'] ??
+              '')
+          .toString();
+  if (known.isNotEmpty) return known;
+  for (final value in input.values) {
+    if (value is String && value.isNotEmpty) return value;
+    if (value is num || value is bool) return value.toString();
+  }
+  return '';
 }
 
 String _stringifyOutput(Object? output) {

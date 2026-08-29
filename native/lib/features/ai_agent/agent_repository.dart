@@ -1,5 +1,8 @@
 import '../../core/api/api_client.dart';
+import 'agent_mcp_models.dart';
 import 'agent_models.dart';
+
+const _mcpDiscoveryTimeout = Duration(seconds: 130);
 
 class AgentRepository {
   const AgentRepository(this._api);
@@ -46,6 +49,56 @@ class AgentRepository {
       'aiPolicy': policy.toJson(),
     });
   }
+
+  Future<List<AgentMcpServer>> getMcpServers() async {
+    final response = await _api.getJson('/agent/mcp-servers');
+    return mapList(response['data'])
+        .map(AgentMcpServer.fromJson)
+        .where((server) => server.id.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<AgentMcpServer> createMcpServer(Map<String, dynamic> payload) async {
+    final response = await _api.postJsonWithReceiveTimeout(
+      '/agent/mcp-servers',
+      payload,
+      _mcpDiscoveryTimeout,
+    );
+    return AgentMcpServer.fromJson(stringMap(response['data']));
+  }
+
+  Future<AgentMcpServer> updateMcpServer(
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _api.putJsonWithReceiveTimeout(
+      '/agent/mcp-servers/$id',
+      payload,
+      _mcpDiscoveryTimeout,
+    );
+    return AgentMcpServer.fromJson(stringMap(response['data']));
+  }
+
+  Future<int> testMcpConnection(Map<String, dynamic> payload) async {
+    final response = await _api.postJsonWithReceiveTimeout(
+      '/agent/mcp-servers/test-connection',
+      payload,
+      _mcpDiscoveryTimeout,
+    );
+    return intValue(stringMap(response['data'])['toolCount']);
+  }
+
+  Future<AgentMcpServer> discoverMcpServer(String id) async {
+    final response = await _api.postJsonWithReceiveTimeout(
+      '/agent/mcp-servers/$id/discover',
+      const {},
+      _mcpDiscoveryTimeout,
+    );
+    return AgentMcpServer.fromJson(stringMap(response['data']));
+  }
+
+  Future<void> deleteMcpServer(String id) =>
+      _api.deleteJson('/agent/mcp-servers/$id');
 
   Future<List<AgentSessionSummary>> getSessions() async {
     final response = await _api.getJson(

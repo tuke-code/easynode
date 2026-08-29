@@ -77,6 +77,48 @@ void main() {
     expect(state.pendingApprovals, isEmpty);
   });
 
+  test('keeps MCP provider metadata through approval and tool events', () {
+    var state = AgentConversationState(
+      messages: [createUserAgentMessage('search the web')],
+    );
+    state = applyAgentEvent(state, const {'type': 'turn_start'});
+    state = applyAgentEvent(state, const {
+      'type': 'approval_request',
+      'requestId': 'approval-mcp',
+      'toolCallId': 'tool-mcp',
+      'tool': 'mcp_anysearch_search',
+      'providerName': 'AnySearch',
+      'toolInfo': {
+        'source': 'mcp',
+        'providerName': 'AnySearch',
+        'displayName': 'Search',
+        'remoteName': 'search',
+      },
+      'input': {'query': 'EasyNode'},
+    });
+    state = applyAgentEvent(state, const {
+      'type': 'tool_call',
+      'toolCallId': 'tool-mcp',
+      'tool': 'mcp_anysearch_search',
+      'toolInfo': {
+        'source': 'mcp',
+        'providerName': 'AnySearch',
+        'displayName': 'Search',
+        'remoteName': 'search',
+      },
+      'input': {'query': 'EasyNode'},
+    });
+
+    final approval = state.pendingApprovals.single;
+    final tool = state.messages.last.parts.single as AgentToolPart;
+    expect(approval.isMcp, isTrue);
+    expect(approval.providerName, 'AnySearch');
+    expect(approval.displayName, 'Search');
+    expect(tool.isMcp, isTrue);
+    expect(tool.providerName, 'AnySearch');
+    expect(tool.displayName, 'Search');
+  });
+
   test('marks a Plus-restricted tool as denied instead of running forever', () {
     var state = AgentConversationState(
       messages: [createUserAgentMessage('restart service')],

@@ -32,8 +32,8 @@
       </el-table-column>
       <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" :loading="discoveringId === row._id" @click="discover(row)">重新发现</el-button>
-          <el-button v-if="row.tools?.length" link @click="openTools(row)">工具管理</el-button>
+          <el-button link type="primary" :loading="discoveringId === row._id" @click="discover(row)">刷新</el-button>
+          <el-button v-if="row.tools?.length" link @click="openTools(row)">管理</el-button>
           <el-button link @click="openEdit(row)">编辑</el-button>
           <el-button link type="danger" @click="remove(row)">删除</el-button>
         </template>
@@ -110,7 +110,11 @@
             <code>{{ row.remoteName }}</code>
           </template>
         </el-table-column>
-        <el-table-column label="说明" min-width="270" show-overflow-tooltip prop="description" />
+        <el-table-column label="说明" min-width="270">
+          <template #default="{ row }">
+            <div class="tool_description">{{ row.description || '-' }}</div>
+          </template>
+        </el-table-column>
         <el-table-column label="启用" width="76" align="center">
           <template #default="{ row }"><el-switch v-model="row.enabled" /></template>
         </el-table-column>
@@ -341,8 +345,6 @@ onMounted(loadServers)
 .settings_section {
   margin-bottom: 28px;
   padding: 20px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
   background: var(--el-bg-color);
 }
 
@@ -366,6 +368,7 @@ onMounted(loadServers)
 .field_tip, .tools_tip { margin: 6px 0 0; color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.6; }
 .tools_tip { margin: 0 0 12px; }
 .tool_name { font-weight: 500; }
+.tool_description { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .schema_preview { padding: 4px 18px 14px; color: var(--el-text-color-secondary); font-size: 12px; }
 .schema_preview pre { margin: 8px 0 0; padding: 10px; border-radius: 6px; background: var(--el-fill-color-light); overflow: auto; }
 

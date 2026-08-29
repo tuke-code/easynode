@@ -1,5 +1,6 @@
 import 'package:easynode_native/core/ui/app_color_theme.dart';
 import 'package:easynode_native/features/ai_agent/agent_models.dart';
+import 'package:easynode_native/features/ai_agent/agent_mcp_models.dart';
 import 'package:easynode_native/features/settings/ai_agent_settings_page.dart';
 import 'package:easynode_native/l10n/app_localizations.dart';
 import 'package:easynode_native/state/agent_providers.dart';
@@ -66,9 +67,33 @@ class _FakeDisabledSettingsNotifier extends AgentSettingsNotifier {
   }
 }
 
+class _FakeMcpServersNotifier extends AgentMcpServersNotifier {
+  @override
+  Future<List<AgentMcpServer>> build() async => [
+    AgentMcpServer.fromJson({
+      '_id': 'mcp-1',
+      'name': 'AnySearch',
+      'key': 'anysearch',
+      'url': 'https://example.com/mcp',
+      'enabled': true,
+      'headers': {'Authorization': ''},
+      'tools': [
+        {
+          'remoteName': 'search',
+          'exposedName': 'mcp_anysearch_search',
+          'displayName': 'Search',
+          'enabled': true,
+          'inputSchema': {'type': 'object'},
+        },
+      ],
+    }),
+  ];
+}
+
 Widget _app({double textScale = 1}) => ProviderScope(
   overrides: [
     agentSettingsProvider.overrideWith(_FakeAgentSettingsNotifier.new),
+    agentMcpServersProvider.overrideWith(_FakeMcpServersNotifier.new),
   ],
   child: MaterialApp(
     locale: const Locale('zh'),
@@ -107,11 +132,8 @@ void main() {
 
     expect(find.text('显示全局 AI 助手'), findsOneWidget);
     expect(find.text('OpenAI Compatible'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Production server with a long name'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.tap(find.text('主机策略'));
+    await tester.pumpAndSettle();
     expect(find.text('Production server with a long name'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -142,11 +164,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Anthropic'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.text('Production server with a long name'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.tap(find.text('主机策略'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Production server with a long name'));
     await tester.pumpAndSettle();
     expect(find.text('允许 AI 使用此主机'), findsOneWidget);
@@ -158,6 +177,38 @@ void main() {
 
     expect(_FakeAgentSettingsNotifier.saveCalls, 0);
     expect(find.text('已关闭'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('MCP tab shows configured servers and editor', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('外部 MCP'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('AnySearch'), findsOneWidget);
+    expect(find.text('已启用 1 / 1 个工具'), findsOneWidget);
+    expect(find.byKey(const Key('agent-mcp-add')), findsOneWidget);
+    final actionCenters = ['刷新', '管理', '编辑', '删除']
+        .map((label) => tester.getCenter(find.text(label)))
+        .toList(growable: false);
+    expect(
+      actionCenters.map((center) => center.dy).toSet().length,
+      1,
+      reason: 'MCP card actions should stay on one row',
+    );
+
+    await tester.tap(find.text('编辑'));
+    await tester.pumpAndSettle();
+
+    final authorization = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('agent-mcp-authorization')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(authorization.obscureText, isFalse);
     expect(tester.takeException(), isNull);
   });
 
@@ -221,7 +272,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('successful save returns without a success toast', (
+  testWidgets('successful save keeps settings open and confirms the save', (
     tester,
   ) async {
     _FakeDisabledSettingsNotifier.saveCalls = 0;
@@ -268,8 +319,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_FakeDisabledSettingsNotifier.saveCalls, 1);
-    expect(find.text('Open settings'), findsOneWidget);
-    expect(find.text('已保存'), findsNothing);
+    expect(find.byType(AiAgentSettingsPage), findsOneWidget);
+    expect(find.text('Open settings'), findsNothing);
+    expect(find.text('已保存'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

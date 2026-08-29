@@ -268,6 +268,7 @@ class AgentToolPart extends AgentMessagePart {
     this.durationMs,
     this.risk,
     this.approval,
+    this.toolInfo,
   });
 
   final String toolCallId;
@@ -279,6 +280,14 @@ class AgentToolPart extends AgentMessagePart {
   final int? durationMs;
   final Map<String, dynamic>? risk;
   final Map<String, dynamic>? approval;
+  final Map<String, dynamic>? toolInfo;
+
+  bool get isMcp => toolInfo?['source'] == 'mcp';
+  String get displayName =>
+      toolInfo?['displayName']?.toString().trim().isNotEmpty == true
+      ? toolInfo!['displayName'].toString()
+      : tool;
+  String get providerName => toolInfo?['providerName']?.toString() ?? '';
 
   AgentToolPart copyWith({
     AgentToolStatus? status,
@@ -289,6 +298,7 @@ class AgentToolPart extends AgentMessagePart {
     int? durationMs,
     Map<String, dynamic>? risk,
     Map<String, dynamic>? approval,
+    Map<String, dynamic>? toolInfo,
   }) => AgentToolPart(
     toolCallId: toolCallId,
     tool: tool,
@@ -299,6 +309,7 @@ class AgentToolPart extends AgentMessagePart {
     durationMs: durationMs ?? this.durationMs,
     risk: risk ?? this.risk,
     approval: approval ?? this.approval,
+    toolInfo: toolInfo ?? this.toolInfo,
   );
 }
 
@@ -351,6 +362,8 @@ class AgentApproval {
     this.risk,
     this.grantLabel,
     this.grantable = true,
+    this.providerName,
+    this.toolInfo,
   });
 
   final String requestId;
@@ -366,6 +379,14 @@ class AgentApproval {
   final Map<String, dynamic>? risk;
   final String? grantLabel;
   final bool grantable;
+  final String? providerName;
+  final Map<String, dynamic>? toolInfo;
+
+  bool get isMcp => toolInfo?['source'] == 'mcp';
+  String get displayName =>
+      toolInfo?['displayName']?.toString().trim().isNotEmpty == true
+      ? toolInfo!['displayName'].toString()
+      : tool;
 
   factory AgentApproval.fromEvent(Map<String, dynamic> event) => AgentApproval(
     requestId: event['requestId']?.toString() ?? '',
@@ -384,6 +405,8 @@ class AgentApproval {
     risk: event['risk'] is Map ? stringMap(event['risk']) : null,
     grantLabel: event['grantLabel']?.toString(),
     grantable: event['grantable'] != false,
+    providerName: event['providerName']?.toString(),
+    toolInfo: event['toolInfo'] is Map ? stringMap(event['toolInfo']) : null,
     createdAt: DateTime.now().millisecondsSinceEpoch,
   );
 }

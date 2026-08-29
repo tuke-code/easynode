@@ -237,11 +237,39 @@ class ApiClient {
     return _request(() => _dio.post(path, data: data));
   }
 
+  Future<Map<String, dynamic>> postJsonWithReceiveTimeout(
+    String path,
+    Map<String, dynamic> data,
+    Duration receiveTimeout,
+  ) async {
+    return _request(
+      () => _dio.post(
+        path,
+        data: data,
+        options: Options(receiveTimeout: receiveTimeout),
+      ),
+    );
+  }
+
   Future<Map<String, dynamic>> putJson(
     String path,
     Map<String, dynamic> data,
   ) async {
     return _request(() => _dio.put(path, data: data));
+  }
+
+  Future<Map<String, dynamic>> putJsonWithReceiveTimeout(
+    String path,
+    Map<String, dynamic> data,
+    Duration receiveTimeout,
+  ) async {
+    return _request(
+      () => _dio.put(
+        path,
+        data: data,
+        options: Options(receiveTimeout: receiveTimeout),
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> patchJson(

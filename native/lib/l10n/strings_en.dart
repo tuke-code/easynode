@@ -638,6 +638,10 @@ const Map<String, String> stringsEn = {
   'agent.open': 'Open AI assistant',
   'agent.settings': 'AI Assistant',
   'agent.settings.subtitle': 'Provider, models, visibility and host policies',
+  'agent.settings.tab.provider': 'Models',
+  'agent.settings.tab.mcp': 'External MCP',
+  'agent.settings.tab.hosts': 'Host policies',
+  'agent.settings.tab.interface': 'Interface',
   'agent.history': 'Conversation history',
   'agent.historyEmpty': 'No conversations yet',
   'agent.historyMeta': '{0} messages',
@@ -708,6 +712,7 @@ const Map<String, String> stringsEn = {
   'agent.effect.write': 'Read and write',
   'agent.approval.title': 'Your confirmation is required',
   'agent.approval.description': 'Run {1} on {0}',
+  'agent.approval.providerDescription': 'Run {1} through {0}',
   'agent.approval.scope': 'Maximum operation scope: {0}',
   'agent.approval.targets': 'Affected targets',
   'agent.approval.sensitive':
@@ -715,6 +720,7 @@ const Map<String, String> stringsEn = {
   'agent.approval.diff': 'Complete write diff',
   'agent.approval.allow': 'Allow',
   'agent.approval.allowSession': 'Allow the same operation this session',
+  'agent.approval.allowMcpSession': 'Allow this tool for this session',
   'agent.approval.deny': 'Deny',
   'agent.notice.historyRepaired': 'Repaired {0} interrupted tool records.',
   'agent.notice.compacted': 'Older context was compacted ({0} messages).',
@@ -782,4 +788,46 @@ const Map<String, String> stringsEn = {
       'The assistant can read and make changes after required approval.',
   'agent.settings.stopBeforeHide':
       'An AI task is still running. Stop it before hiding the global entry?',
+  'agent.settings.mcp.title': 'External MCP',
+  'agent.settings.mcp.subtitle':
+      'Connect remote Streamable HTTP MCP servers. Tools are discovered on save and require confirmation before use.',
+  'agent.settings.mcp.add': 'Add MCP Server',
+  'agent.settings.mcp.edit': 'Edit MCP Server',
+  'agent.settings.mcp.empty': 'No MCP servers configured',
+  'agent.settings.mcp.name': 'Name',
+  'agent.settings.mcp.key': 'Key',
+  'agent.settings.mcp.keyHint':
+      'Used for stable tool names and cannot be changed after creation.',
+  'agent.settings.mcp.keyInvalid':
+      'Use lowercase letters, numbers, underscores, or hyphens.',
+  'agent.settings.mcp.connectTimeout': 'Connect timeout',
+  'agent.settings.mcp.callTimeout': 'Call timeout',
+  'agent.settings.mcp.seconds': 'sec',
+  'agent.settings.mcp.timeoutInvalid': 'Enter a value from 1 to 60 seconds.',
+  'agent.settings.mcp.authType': 'Authentication',
+  'agent.settings.mcp.authNone': 'No authentication',
+  'agent.settings.mcp.authKey': 'Key (Authorization)',
+  'agent.settings.mcp.authOauth': 'OAuth 2.1 (coming later)',
+  'agent.settings.mcp.secret': 'Key',
+  'agent.settings.mcp.secretHint':
+      'Sent as the Authorization header and stored encrypted.',
+  'agent.settings.mcp.secretEditHint':
+      'Leave blank to keep the current key, or enter a replacement.',
+  'agent.settings.mcp.enabled': 'Enable this server',
+  'agent.settings.mcp.test': 'Test connection',
+  'agent.settings.mcp.testSuccess': 'Connected; discovered {0} tools',
+  'agent.settings.mcp.saved': 'Saved; discovered {0} tools',
+  'agent.settings.mcp.savedWithError':
+      'Configuration saved and disabled; discovery failed: {0}',
+  'agent.settings.mcp.discovered': 'Discovery complete; found {0} tools',
+  'agent.settings.mcp.toolCount': '{0} of {1} tools enabled',
+  'agent.settings.mcp.actionRefresh': 'Refresh',
+  'agent.settings.mcp.actionManage': 'Manage',
+  'agent.settings.mcp.actionEdit': 'Edit',
+  'agent.settings.mcp.delete': 'Delete MCP Server',
+  'agent.settings.mcp.deleteConfirm': 'Delete MCP Server “{0}” and its tools?',
+  'agent.settings.mcp.toolsTitle': '{0} tools',
+  'agent.settings.mcp.toolsHint':
+      'Disable tools you do not want AI to use. External tools always require confirmation before use.',
+  'agent.settings.mcp.saveTools': 'Save tool settings',
 };

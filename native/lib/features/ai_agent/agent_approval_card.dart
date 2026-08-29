@@ -72,10 +72,17 @@ class _AgentApprovalCardState extends ConsumerState<AgentApprovalCard> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    l.trf('agent.approval.description', [
-                      item.hostName ?? '-',
-                      _toolLabel(l, item.tool),
-                    ]),
+                    item.isMcp
+                        ? l.trf('agent.approval.providerDescription', [
+                            item.providerName ??
+                                item.toolInfo?['providerName']?.toString() ??
+                                'MCP',
+                            item.displayName,
+                          ])
+                        : l.trf('agent.approval.description', [
+                            item.hostName ?? '-',
+                            _toolLabel(l, item.tool),
+                          ]),
                   ),
                   if (item.effect != null) ...[
                     const SizedBox(height: 6),
@@ -142,7 +149,11 @@ class _AgentApprovalCardState extends ConsumerState<AgentApprovalCard> {
                   onPressed: () => ref
                       .read(agentControllerProvider.notifier)
                       .approve(item.requestId, true, scope: 'session'),
-                  child: Text(l.tr('agent.approval.allowSession')),
+                  child: Text(
+                    item.isMcp
+                        ? l.tr('agent.approval.allowMcpSession')
+                        : l.tr('agent.approval.allowSession'),
+                  ),
                 ),
               TextButton(
                 onPressed: () => ref

@@ -97,4 +97,43 @@ void main() {
     expect(tester.widget<SingleChildScrollView>(scroll).primary, isFalse);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('MCP tool card shows provider and remote display name', (
+    tester,
+  ) async {
+    const part = AgentToolPart(
+      toolCallId: 'mcp-tool',
+      tool: 'mcp_anysearch_search_1234',
+      input: {'query': 'EasyNode'},
+      status: AgentToolStatus.done,
+      output: {'content': 'ok'},
+      toolInfo: {
+        'source': 'mcp',
+        'providerName': 'AnySearch',
+        'displayName': 'Search',
+      },
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: ThemeData(
+          useMaterial3: true,
+          extensions: const [AppColorTheme.defaultLight],
+        ),
+        home: const Scaffold(body: AgentToolCard(part: part)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Search'), findsOneWidget);
+    expect(find.text('MCP · AnySearch'), findsOneWidget);
+    expect(find.text('EasyNode'), findsOneWidget);
+  });
 }

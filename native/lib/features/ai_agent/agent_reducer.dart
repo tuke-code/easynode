@@ -159,7 +159,12 @@ AgentConversationState applyAgentEvent(
       return _updateTool(
         state,
         event['toolCallId']?.toString() ?? '',
-        (part) => part.copyWith(durationMs: intValue(event['durationMs'])),
+        (part) => part.copyWith(
+          durationMs: intValue(event['durationMs']),
+          toolInfo: event['toolInfo'] is Map
+              ? stringMap(event['toolInfo'])
+              : null,
+        ),
       );
     case 'tool_result':
       return _updateTool(
@@ -171,11 +176,17 @@ AgentConversationState applyAgentEvent(
                     ? AgentToolStatus.denied
                     : AgentToolStatus.error,
                 error: event['error'].toString(),
+                toolInfo: event['toolInfo'] is Map
+                    ? stringMap(event['toolInfo'])
+                    : null,
               )
             : part.copyWith(
                 status: AgentToolStatus.done,
                 output: normalizeAgentToolOutput(event['output']),
                 clearError: true,
+                toolInfo: event['toolInfo'] is Map
+                    ? stringMap(event['toolInfo'])
+                    : null,
               ),
       );
     case 'awaiting_model':
@@ -206,6 +217,7 @@ AgentConversationState applyAgentEvent(
         (part) => part.copyWith(
           status: AgentToolStatus.awaitingApproval,
           risk: approval.risk,
+          toolInfo: approval.toolInfo,
         ),
       );
       return updated.copyWith(
@@ -326,6 +338,9 @@ AgentConversationState _appendTool(
           ? AgentToolStatus.running
           : AgentToolStatus.awaitingApproval,
       risk: pending?.risk,
+      toolInfo: event['toolInfo'] is Map
+          ? stringMap(event['toolInfo'])
+          : pending?.toolInfo,
     ),
   );
   messages[messages.length - 1] = message.copyWith(parts: parts);
@@ -499,6 +514,9 @@ List<AgentMessage> messagesFromAgentSession(AgentSession session) {
                       'scope': meta['approvalScope'],
                       'cached': meta['approvalCached'],
                     },
+              toolInfo: meta['toolInfo'] is Map
+                  ? stringMap(meta['toolInfo'])
+                  : null,
             );
             parts.add(tool);
             toolParts[id] = tool;

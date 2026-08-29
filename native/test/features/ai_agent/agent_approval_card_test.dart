@@ -56,4 +56,46 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('MCP approval names the provider and offers tool grant', (
+    tester,
+  ) async {
+    final approval = AgentApproval(
+      requestId: 'approval-mcp',
+      toolCallId: 'tool-mcp',
+      tool: 'mcp_anysearch_search',
+      input: const {'query': 'EasyNode'},
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+      providerName: 'AnySearch',
+      toolInfo: const {
+        'source': 'mcp',
+        'providerName': 'AnySearch',
+        'displayName': 'Search',
+      },
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: ThemeData(
+            useMaterial3: true,
+            extensions: const [AppColorTheme.defaultLight],
+          ),
+          home: Scaffold(body: AgentApprovalCard(approval: approval)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Run Search through AnySearch'), findsOneWidget);
+    expect(find.text('Allow this tool for this session'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

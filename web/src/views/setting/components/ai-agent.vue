@@ -1,18 +1,26 @@
 <template>
   <div class="ai_agent_settings">
-    <header class="settings_header">
-      <div>
-        <h2>AI 助手</h2>
-        <p>分别管理模型服务、外部能力、主机权限和界面入口。各区域独立保存，互不影响。</p>
-      </div>
-    </header>
-
     <el-tabs v-model="activeSection" class="settings_tabs">
       <el-tab-pane name="provider">
         <template #label>
           <span class="tab_label"><el-icon><Cpu /></el-icon>模型服务</span>
         </template>
         <section class="settings_section">
+          <div class="interface_setting_row">
+            <div>
+              <h4>AI 助手入口</h4>
+              <p>控制登录后各页面是否显示 AI 助手宠物入口，不影响 Web 终端助手。</p>
+            </div>
+            <div class="interface_switch">
+              <el-switch
+                :model-value="petEnabled"
+                :loading="savingPreferences"
+                @change="savePetEnabled"
+              />
+              <span :class="{ 'is_active': petEnabled }">{{ petEnabled ? '已显示' : '已隐藏' }}</span>
+            </div>
+          </div>
+
           <div class="section_head">
             <div>
               <h3>Provider 设置</h3>
@@ -127,6 +135,7 @@
               <el-button type="primary" :loading="savingProvider" @click="saveProvider">保存 Provider 设置</el-button>
             </el-form-item>
           </el-form>
+
         </section>
       </el-tab-pane>
 
@@ -202,34 +211,13 @@
         </section>
       </el-tab-pane>
 
-      <el-tab-pane name="appearance" lazy>
-        <template #label>
-          <span class="tab_label"><el-icon><Monitor /></el-icon>界面显示</span>
-        </template>
-        <section class="settings_section appearance_section">
-          <div class="section_head interface_setting_head">
-            <div>
-              <h3>AI 助手入口</h3>
-              <p>控制登录后各页面是否显示 AI 助手宠物入口，不影响 Web 终端助手。</p>
-            </div>
-            <div class="interface_switch">
-              <el-switch
-                :model-value="petEnabled"
-                :loading="savingPreferences"
-                @change="savePetEnabled"
-              />
-              <span :class="{ 'is_active': petEnabled }">{{ petEnabled ? '已显示' : '已隐藏' }}</span>
-            </div>
-          </div>
-        </section>
-      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
 
 <script setup>
 import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue'
-import { Connection, Cpu, Lock, Monitor } from '@element-plus/icons-vue'
+import { Connection, Cpu, Lock } from '@element-plus/icons-vue'
 import AgentMcp from './agent-mcp.vue'
 
 const { proxy: { $api, $message, $store } } = getCurrentInstance()
@@ -259,7 +247,7 @@ const DEFAULT_HOST_POLICY = {
 
 const DEFAULT_CONTEXT_LIMIT = 64 * 1024
 const DEFAULT_MAX_STEPS = 25
-const SETTING_SECTIONS = new Set(['provider', 'mcp', 'hosts', 'appearance'])
+const SETTING_SECTIONS = new Set(['provider', 'mcp', 'hosts'])
 const savedSection = localStorage.getItem('aiAgentSettingsSection')
 
 const activeSection = ref(SETTING_SECTIONS.has(savedSection) ? savedSection : 'provider')
@@ -436,17 +424,6 @@ onMounted(async () => {
   margin: 0;
 }
 
-.settings_header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 4px;
-
-  h2 { margin: 0 0 7px; font-size: 20px; font-weight: 600; }
-  p { margin: 0; color: var(--el-text-color-secondary); font-size: 13px; line-height: 1.6; }
-}
-
 .settings_tabs {
   :deep(.el-tabs__header) { margin: 0 0 18px; }
   :deep(.el-tabs__nav-wrap::after) { height: 1px; }
@@ -463,8 +440,6 @@ onMounted(async () => {
 .settings_section {
   margin-bottom: 0;
   padding: 24px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
   background: var(--el-bg-color);
 }
 
@@ -476,12 +451,18 @@ onMounted(async () => {
   p { margin: 0; color: var(--el-text-color-secondary); font-size: 13px; line-height: 1.6; }
 }
 
-.interface_setting_head {
+.interface_setting_row {
   align-items: center;
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 0;
+  max-width: 760px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+
+  h4 { margin: 0 0 5px; font-size: 14px; }
+  p { margin: 0; color: var(--el-text-color-secondary); font-size: 13px; line-height: 1.6; }
 }
 
 .interface_switch {
@@ -526,14 +507,13 @@ onMounted(async () => {
 .host_addr { margin-top: 3px; color: var(--el-text-color-secondary); font-size: 12px; }
 
 @media (max-width: 768px) {
-  .settings_header { margin-bottom: 2px; }
   .settings_tabs :deep(.el-tabs__item) { height: 44px; padding: 0 14px; }
   .tab_label { gap: 5px; font-size: 13px; }
   .settings_section { padding: 14px; }
   .host_policy_section { overflow-x: auto; }
   .host_policy_table { min-width: 760px; }
   .models_input_wrap { align-items: flex-start; flex-direction: column; }
-  .interface_setting_head { align-items: flex-start; flex-direction: column; }
+  .interface_setting_row { align-items: flex-start; flex-direction: column; }
   :deep(.provider_form .el-form-item) { display: block; }
   :deep(.provider_form .el-form-item__label) { width: auto !important; justify-content: flex-start; }
   :deep(.provider_form .el-form-item__content) { margin-left: 0 !important; }
