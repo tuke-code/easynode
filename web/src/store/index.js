@@ -89,6 +89,13 @@ const useStore = defineStore('global', {
       localStorage.setItem('deviceId', deviceId)
       this.$patch({ user: username, deviceId })
     },
+    clearLoginInfo() {
+      localStorage.removeItem('token')
+      localStorage.removeItem('uid')
+      localStorage.removeItem('user')
+      localStorage.removeItem('deviceId')
+      this.$patch({ token: null, uid: null, user: null, deviceId: null })
+    },
     async removeLoginInfo(removeSession = false) {
       try {
         if (removeSession && this.deviceId) {
@@ -97,11 +104,7 @@ const useStore = defineStore('global', {
       } catch (err) {
         console.error('注销登录凭证失败: ', err.message)
       } finally {
-        localStorage.removeItem('token')
-        localStorage.removeItem('uid')
-        localStorage.removeItem('user')
-        localStorage.removeItem('deviceId')
-        this.$patch({ token: null, uid: null, user: null, deviceId: null })
+        this.clearLoginInfo()
       }
     },
     async getMainData() {
