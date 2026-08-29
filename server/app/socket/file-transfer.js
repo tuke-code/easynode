@@ -7,6 +7,7 @@ import { createSecureWs } from '../utils/ws-tool.js'
 import { getConnectionOptions } from './terminal.js'
 import { FileTransferDB, HostListDB } from '../utils/db-class.js'
 import decryptAndExecuteAsync from '../utils/decrypt-file.js'
+import { buildRsyncCommand, validateRsyncCommandInput } from '../utils/rsync-command.js'
 
 const fileTransferDB = new FileTransferDB().getInstance()
 const hostListDB = new HostListDB().getInstance()
@@ -266,9 +267,13 @@ async function executeRsyncTransfer(taskData, sshClient, socket) {
 
   logger.info(`目标主机认证方式: ${ targetHostAuthType }`)
 
-  // 构建Rsync命令
-  let rsyncCmd = []
-  let envVars = {}
+  // 在创建临时密钥或执行任何远程命令前拒绝非法参数
+  validateRsyncCommandInput({
+    sourcePaths,
+    targetPath,
+    targetOptions,
+    transferOptions: taskData.options || {}
+  })
 
   // ssh密钥tmp路径
   let keyFile = null
@@ -278,9 +283,6 @@ async function executeRsyncTransfer(taskData, sshClient, socket) {
     // 检查源主机sshpass是否可用
     try {
       await checkSshpassAvailable(sshClient)
-      // 使用环境变量方式传递密码，避免命令行参数解析问题
-      envVars.SSHPASS = targetOptions.password
-      rsyncCmd.push('sshpass', '-e') // -e 表示从环境变量读取密码
     } catch (error) {
       throw new Error('源主机未安装sshpass工具，无法进行密码认证传输。请使用密钥认证或在源主机安装sshpass: apt-get install sshpass 或 yum install sshpass')
     }
@@ -288,31 +290,7 @@ async function executeRsyncTransfer(taskData, sshClient, socket) {
     keyFile = await createRemoteTempKeyFile(sshClient, targetOptions.privateKey)
   }
 
-  rsyncCmd.push('rsync', '-avz', '--progress', '--partial') // 归档、详细、压缩、进度、支持断点续传
-
-  // 添加增量同步和安全选项
-  rsyncCmd.push('--inplace', '--append') // 断点续传关键选项
-
-  // 添加更详细的进度输出选项
-  rsyncCmd.push('--stats', '--human-readable', '--itemize-changes') // 统计信息、可读格式、详细变更
-
-  // 构建SSH命令选项
-  const sshOptions = [
-    '-p', (targetOptions.port || 22).toString(),
-    '-o', 'StrictHostKeyChecking=no',
-    '-o', 'UserKnownHostsFile=/dev/null',
-    '-o', 'GlobalKnownHostsFile=/dev/null'
-  ]
-
-  // 根据认证类型设置不同的SSH选项
-  if (targetOptions.password) {
-    sshOptions.push('-o', 'PreferredAuthentications=password')
-  } else {
-    sshOptions.push('-o', 'BatchMode=yes')
-  }
-
   if (keyFile) {
-    sshOptions.push('-i', `"${ keyFile }"`)
     // 记录临时密钥文件路径到活跃任务中
     const activeTask = activeTasks.get(taskId)
     if (activeTask) {
@@ -320,44 +298,23 @@ async function executeRsyncTransfer(taskData, sshClient, socket) {
     }
   }
 
-  // 封装成一个整体的 SSH 命令，放到双引号内，确保 rsync 正确解析
-  const sshCmd = `ssh ${ sshOptions.join(' ') } -o LogLevel=ERROR`
-  rsyncCmd.push('-e', `"${ sshCmd }"`)
+  const { command, environmentKeys } = buildRsyncCommand({
+    sourcePaths,
+    targetPath,
+    targetOptions,
+    transferOptions: taskData.options || {},
+    keyFile
+  })
 
-  // 添加传输选项
-  if (taskData.options.delete) {
-    rsyncCmd.push('--delete')
-  }
-  if (taskData.options.excludePatterns && taskData.options.excludePatterns.length > 0) {
-    taskData.options.excludePatterns.forEach(pattern => {
-      rsyncCmd.push('--exclude', pattern)
-    })
-  }
-
-  // 添加源和目标路径
-  rsyncCmd.push(...sourcePaths.map(item => item.path))
-  rsyncCmd.push(`${ targetOptions.username }@${ targetOptions.host }:"${ targetPath }"`)
-
-  logger.info(`执行Rsync命令: ${ rsyncCmd.join(' ') }`)
-  if (Object.keys(envVars).length > 0) {
-    logger.info(`环境变量: ${ Object.keys(envVars).join(', ') }`)
+  logger.info(`执行Rsync任务: ${ taskId }, 源路径数: ${ sourcePaths.length }, 目标主机: ${ targetOptions.host }`)
+  if (environmentKeys.length > 0) {
+    logger.info(`Rsync环境变量: ${ environmentKeys.join(', ') }`)
   }
 
   return new Promise((resolve, reject) => {
     // 在源主机上执行Rsync命令
-    let finalCommand = rsyncCmd.join(' ')
-
-    // 环境变量，需要在命令前设置
-    if (Object.keys(envVars).length > 0) {
-      const envString = Object.entries(envVars)
-        .map(([key, value]) => `${ key }='${ value.replace(/'/g, '\'"\'"\'') }'`)
-        .join(' ')
-      finalCommand = `${ envString } ${ finalCommand }`
-    }
-
-    // logger.info(`最终Rsync命令: ${ finalCommand }`)
     let start = false
-    sshClient.exec(finalCommand, (err, stream) => {
+    sshClient.exec(command, (err, stream) => {
       if (err) {
         reject(err)
         return
