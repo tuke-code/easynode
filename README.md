@@ -73,7 +73,7 @@ Native端复用现有EasyNode后端，在移动设备上提供服务器管理、
 ### 默认账号与密码查看
 
 - 首次启动后会在终端自动生成管理员账号密码，登录后请及时修改，避免日志残留敏感信息。
-- 请牢记账号密码，出于安全原因，不提供一键重置密码的脚本
+- 请牢记账号密码；Docker 部署如需重置密码，可使用下方的维护脚本。
 - 访问：
   - https安全访问：https://ip:8083  【注意：默认启用https自签证书加密访问，首次打开需在浏览器中手动跳过 https 证书错误提示：浏览器页面中点 高级 --> 继续前往】
   - http 内网访问：http://ip:8082  【切记：开放公网访问**请勿使用http**，仓库提供的 docker-compose.yml 文件默认仅127.0.0.1内网访问】
@@ -97,6 +97,48 @@ wget https://git.221022.xyz/https://raw.githubusercontent.com/chaos-zhu/easynode
 # 3. 启动服务
 docker compose up -d
 ```
+
+<details>
+<summary><strong>Docker 维护脚本</strong></summary>
+
+<br>
+
+以下脚本仅支持 Docker Compose 部署。请在 `docker-compose.yml` 所在目录执行，并严格按照“停止服务 → 运行一次性维护容器 → 恢复服务”的顺序操作，避免多个进程同时写入数据库。
+
+> [!WARNING]
+> 执行任何维护脚本前，必须先使用 `docker compose stop easynode` 完全停止 EasyNode 主容器。禁止通过 `docker exec` 在运行中的容器内执行这些脚本，否则多个进程同时写入 NeDB，可能造成数据覆盖或数据库损坏。
+
+#### 重置管理员用户名和密码
+
+```shell
+docker compose stop easynode
+docker compose run --rm --no-deps easynode node scripts/reset-password.js
+docker compose up -d easynode
+```
+
+脚本启动后会要求确认，只有输入 `y` 或 `Y` 才会继续。确认后将生成并输出新的随机管理员用户名和密码，同时使所有现有登录会话失效。请使用新凭据登录后立即修改用户名和密码。
+
+#### 移除 MFA
+
+```shell
+docker compose stop easynode
+docker compose run --rm --no-deps easynode node scripts/remove-mfa.js
+docker compose up -d easynode
+```
+
+脚本会关闭管理员账号的 MFA 并删除现有 TOTP 密钥，不会修改用户名或密码。服务恢复后请尽快重新启用 MFA。
+
+#### 移除所有 IP 白名单
+
+```shell
+docker compose stop easynode
+docker compose run --rm --no-deps easynode node scripts/remove-ip-whitelist.js
+docker compose up -d easynode
+```
+
+脚本会清空当前及旧版兼容的全部 IP 访问规则。服务恢复后所有来源 IP 均可访问面板，请尽快重新配置 IP 白名单，并避免将未受保护的面板暴露到公网。
+
+</details>
 
 ## 环境变量
 
